@@ -1,0 +1,16 @@
+*.pyc
+*.so
+*.png
+*.eps
+*~
+\#*
+build/
+inputs.auto
+.noseids
+
+.ipynb_checkpoints/
+
+*.pdf
+
+*.h5
+!/*/tests/*.h5
