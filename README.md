@@ -1,1 +1,1 @@
-![Alt text](/gauss_diffusion.ppg?raw=true "Optional Title")
+![Alt text](/gauss_diffusion.png?raw=true "Optional Title")
