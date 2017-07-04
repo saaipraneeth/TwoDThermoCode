@@ -233,7 +233,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
 
     tm_limit.end()
 
-    gamcl = 1.4*np.ones((136,18))
+    gamcl = 1.4*np.ones((136,18), order = 'F')
     gamcr = gamcl
     #=========================================================================
     # x-direction
@@ -263,18 +263,17 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
                                   r, u, v, p, re,
                                   ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px, ldelta_rex)
     
-    myg.ng = 4
-    ivars.nvar = 4
-    V_l1, V_r2 = interface_f1.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
-                                  ivars.nvar,
-                                  gamma,
-                                  r, u, v, p,
-                                  ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
+    # myg.ng = 4
+    # ivars.nvar = 4
+    # V_l1, V_r2 = interface_f1.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
+    #                               ivars.nvar,
+    #                               gamma,
+    #                               r, u, v, p,
+    #                               ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
 
-    keyboard()
+    # keyboard()
     tm_states.end()
 
-    keyboard()
     # transform interface states back into conserved variables
     U_xl = comp.prim_to_cons(V_l, gamma, ivars, myg)
     U_xr = comp.prim_to_cons(V_r, gamma, ivars, myg)
@@ -301,7 +300,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     U_yl = comp.prim_to_cons(V_l, gamma, ivars, myg)
     U_yr = comp.prim_to_cons(V_r, gamma, ivars, myg)
 
-
+    myg.ng = 4
     #=========================================================================
     # apply source terms
     #=========================================================================
@@ -331,14 +330,16 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     U_yr.v(buf=1, n=ivars.iymom)[:,:] += 0.5*dt*ymom_src.v(buf=1)
     U_yr.v(buf=1, n=ivars.iener)[:,:] += 0.5*dt*E_src.v(buf=1)
 
-
     #=========================================================================
     # compute transverse fluxes
     #=========================================================================
     tm_riem = tc.timer("riemann")
     tm_riem.begin()
 
+
     riemann = rp.get_param("compressible.riemann")
+
+    riemann = "CGF"
 
     if riemann == "HLLC":
         riemannFunc = interface_f.riemann_hllc
@@ -347,11 +348,12 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     else:
         msg.fail("ERROR: Riemann solver undefined")
 
-
+    myg.ng = 5
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
                       gamcl, gamcr, U_xl, U_xr)
+
 
     _fy = riemannFunc(2, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
@@ -362,7 +364,6 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)    
     
     tm_riem.end()
-
     #=========================================================================
     # construct the interface values of U now
     #=========================================================================
@@ -451,12 +452,12 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
-                      gamma, U_xl, U_xr)
+                      gamcl, gamcr, U_xl, U_xr)
 
     _fy = riemannFunc(2, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.yl, solid.yr,
-                      gamma, U_yl, U_yr)
+                      gamcl, gamcr, U_yl, U_yr)
 
     F_x = ai.ArrayIndexer(d=_fx, grid=myg)
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)
@@ -468,6 +469,8 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     #=========================================================================
     cvisc = rp.get_param("compressible.cvisc")
 
+    myg.ng = 4
+    ivars.nvar = 4
     _ax, _ay = interface_f.artificial_viscosity( 
         myg.qx, myg.qy, myg.ng, myg.dx, myg.dy, 
         cvisc, u, v)

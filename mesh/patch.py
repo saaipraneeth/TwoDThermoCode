@@ -43,6 +43,7 @@ from util import msg
 
 import mesh.boundary as bnd
 import mesh.array_indexer as ai
+from pdb import set_trace as keyboard
 
 
 class Grid2d(object):
@@ -506,12 +507,14 @@ class CellCenterData2d(object):
 
         n = self.names.index(name)
 
+
         # -x boundary
         if self.BCs[name].xlb in ["outflow", "neumann"]:
 
             if self.BCs[name].xl_value is None:
                 for i in range(self.grid.ilo):
                     self.data[i,:,n] = self.data[self.grid.ilo,:,n]
+
             else:
                 self.data[self.grid.ilo-1,:,n] = \
                     self.data[self.grid.ilo,:,n] - self.grid.dx*self.BCs[name].xl_value[:]

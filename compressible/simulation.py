@@ -29,22 +29,24 @@ class Variables(object):
         self.ixmom = myd.names.index("x-momentum")
         self.iymom = myd.names.index("y-momentum")
         self.iener = myd.names.index("energy")
+        self.irhoe = self.idens*self.iener
 
         # if there are any additional variable, we treat them as
         # passively advected scalars
-        self.naux = self.nvar - 4
+        self.naux = self.nvar - 5
         if self.naux > 0:
             self.irhox = 4
         else:
             self.irhox = -1
 
         # primitive variables
-        self.nq = 4 + self.naux
+        self.nq = 5 + self.naux
 
         self.irho = 0
         self.iu = 1
         self.iv = 2
         self.ip = 3
+        self.ire= 4
 
         if self.naux > 0:
             self.ix = 4   # advected scalar
@@ -82,6 +84,9 @@ def prim_to_cons(q, gamma, ivars, myg):
     U[:,:,ivars.idens] = q[:,:,ivars.irho] 
     U[:,:,ivars.ixmom] = q[:,:,ivars.iu]*U[:,:,ivars.idens]
     U[:,:,ivars.iymom] = q[:,:,ivars.iv]*U[:,:,ivars.idens]
+    U[:,:,ivars.ire]   = q[:,:,ivars.ire]
+
+    rhoe = q[:,:,ivars.ire]
 
     #rhoe = eos.rhoe(U[:,:,ivars.idens], q[:,:,ivars.ip])
     rhoe = eos.rhoe(gamma, q[:,:,ivars.ip])

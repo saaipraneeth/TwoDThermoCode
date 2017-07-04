@@ -40,6 +40,9 @@ def derive_primitives(myd, varnames):
         elif var in ["p", "pressure"]:
             derived_vars.append(p)
 
+        elif var in ["rhoe", "rhoenergy"]:
+            derived_vars.append(dens*ener)
+
         elif var == "primitive":
             derived_vars.append(dens)
             derived_vars.append(u)
