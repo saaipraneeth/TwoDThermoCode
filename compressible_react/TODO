@@ -1,7 +1,0 @@
--- modify the main compressible init to allow for auxillary advected
-   quantities
-
--- modify the interface reconstruction to allow for auxillary advected
-   quantities
-
--- create a burning module that can be imported
