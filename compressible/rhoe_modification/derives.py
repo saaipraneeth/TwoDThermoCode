@@ -1,5 +1,5 @@
 import numpy as np
-from pdb import set_trace as keyboard
+
 import compressible.eos as eos
 
 def derive_primitives(myd, varnames):
@@ -21,9 +21,8 @@ def derive_primitives(myd, varnames):
     e = (ener - 0.5*dens*(u*u + v*v))/dens
 
     gamma = myd.get_aux("gamma")
-    p = eos.pres(dens, e)
-    # to import the class attributes
-    p = p*dens/dens
+    p = eos.pres(gamma, dens, e)
+
     if isinstance(varnames, str):
         wanted = [varnames]
     else:
@@ -41,11 +40,15 @@ def derive_primitives(myd, varnames):
         elif var in ["p", "pressure"]:
             derived_vars.append(p)
 
+        elif var in ["rhoe", "rhoenergy"]:
+            derived_vars.append(dens*ener)
+
         elif var == "primitive":
             derived_vars.append(dens)
             derived_vars.append(u)
             derived_vars.append(v)
             derived_vars.append(p)
+            derived_vars.append(dens*ener)
 
         elif var == "soundspeed":
             derived_vars.append(np.sqrt(gamma*p/dens))

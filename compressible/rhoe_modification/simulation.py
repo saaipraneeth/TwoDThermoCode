@@ -5,7 +5,7 @@ import importlib
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import AxesGrid
-from pdb import set_trace as keyboard
+
 import compressible.BC as BC
 import compressible.eos as eos
 import compressible.derives as derives
@@ -13,6 +13,7 @@ import mesh.boundary as bnd
 import mesh.patch as patch
 from simulation_null import NullSimulation, grid_setup, bc_setup
 import compressible.unsplit_fluxes as flx
+from pdb import set_trace as keyboard
 
 class Variables(object):
     """
@@ -28,22 +29,24 @@ class Variables(object):
         self.ixmom = myd.names.index("x-momentum")
         self.iymom = myd.names.index("y-momentum")
         self.iener = myd.names.index("energy")
+        self.irhoe = self.idens*self.iener
 
         # if there are any additional variable, we treat them as
         # passively advected scalars
-        self.naux = self.nvar - 4
+        self.naux = self.nvar - 5
         if self.naux > 0:
             self.irhox = 4
         else:
             self.irhox = -1
 
         # primitive variables
-        self.nq = 4 + self.naux
+        self.nq = 5 + self.naux
 
         self.irho = 0
         self.iu = 1
         self.iv = 2
         self.ip = 3
+        self.ire= 4
 
         if self.naux > 0:
             self.ix = 4   # advected scalar
@@ -64,7 +67,7 @@ def cons_to_prim(U, gamma, ivars, myg):
          0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 + 
                                 q[:,:,ivars.iv]**2))/q[:,:,ivars.irho]
 
-    q[:,:,ivars.ip] = eos.pres(q[:,:,ivars.irho], e)
+    q[:,:,ivars.ip] = eos.pres(gamma, q[:,:,ivars.irho], e)
 
     if ivars.naux > 0:
         q[:,:,ivars.ix:ivars.ix+ivars.naux] = \
@@ -82,8 +85,9 @@ def prim_to_cons(q, gamma, ivars, myg):
     U[:,:,ivars.ixmom] = q[:,:,ivars.iu]*U[:,:,ivars.idens]
     U[:,:,ivars.iymom] = q[:,:,ivars.iv]*U[:,:,ivars.idens]
 
-    #rhoe = eos.rhoe(gamma, q[:,:,ivars.ip])
-    rhoe = eos.rhoe(U[:,:,ivars.idens], q[:,:,ivars.ip])
+
+    #rhoe = eos.rhoe(U[:,:,ivars.idens], q[:,:,ivars.ip])
+    rhoe = eos.rhoe(gamma, q[:,:,ivars.ip])
 
     U[:,:,ivars.iener] = rhoe + 0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 + 
                                                        q[:,:,ivars.iv]**2)
@@ -244,7 +248,7 @@ class Simulation(NullSimulation):
         u = q[:,:,ivars.iu]
         v = q[:,:,ivars.iv]
         p = q[:,:,ivars.ip]
-        e = eos.rhoe(rho, p)/rho
+        e = eos.rhoe(gamma, p)/rho
 
         magvel = np.sqrt(u**2 + v**2)
 

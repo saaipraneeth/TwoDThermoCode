@@ -22,11 +22,11 @@ xrboundary = outflow
 [sod]
 direction = x
 
-dens_left = 1.4
-dens_right = 1.3
+dens_left = 1.0
+dens_right = 0.125
 
 u_left = 0.0
 u_right = 0.0
 
-p_left = 1.0E06
-p_right = 0.1E06
+p_left = 1.0
+p_right = 0.1

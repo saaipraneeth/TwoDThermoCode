@@ -125,7 +125,7 @@ Updating U_{i,j}:
 """
 
 import compressible.eos as eos
-import compressible.interface_f as interface_f
+import compressible.interface_f1 as interface_f
 import compressible as comp
 import mesh.reconstruction as reconstruction
 import mesh.reconstruction_f as reconstruction_f
@@ -134,9 +134,6 @@ from pdb import set_trace as keyboard
 import numpy as np
 
 from util import msg
-from CoolProp.CoolProp import PropsSI
-from CoolProp.CoolProp import PhaseSI
-fluid = 'Oxygen'
 
 def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     """
@@ -188,7 +185,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     ymom = my_data.get_var("y-momentum")
     ener = my_data.get_var("energy")
 
-    r, u, v, p = my_data.get_var("primitive")
+    r, u, v, p, re = my_data.get_var("primitive")
 
     smallp = 1.e-10
     p = p.clip(smallp)   # apply a floor to the pressure
@@ -224,16 +221,19 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     ldelta_ux = xi*reconstruction.limit(u, myg, 1, limiter)
     ldelta_vx = xi*reconstruction.limit(v, myg, 1, limiter)
     ldelta_px = xi*reconstruction.limit(p, myg, 1, limiter)
+    ldelta_rex= xi*reconstruction.limit(re,myg, 1, limiter)
 
     # monotonized central differences in y-direction
     ldelta_ry = xi*reconstruction.limit(r, myg, 2, limiter)
     ldelta_uy = xi*reconstruction.limit(u, myg, 2, limiter)
     ldelta_vy = xi*reconstruction.limit(v, myg, 2, limiter)
     ldelta_py = xi*reconstruction.limit(p, myg, 2, limiter)
+    ldelta_rey= xi*reconstruction.limit(re,myg, 2, limiter)
 
     tm_limit.end()
 
-
+    gamcl = 1.4*np.ones((136,18), order = 'F')
+    gamcr = gamcl
     #=========================================================================
     # x-direction
     #=========================================================================
@@ -242,15 +242,36 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     tm_states = tc.timer("interfaceStates")
     tm_states.begin()
 
+    # r = np.array(r, order = 'F')
+    # u = np.array(u, order = 'F')
+    # v = np.array(v, order = 'F')
+    # p = np.array(p, order = 'F')
+    # re = np.array(re, order = 'F')
+    # ldelta_rx = np.array(ldelta_rx, order = 'F')
+    # ldelta_ux = np.array(ldelta_ux, order = 'F')
+    # ldelta_vx = np.array(ldelta_vx, order = 'F')
+    # ldelta_px = np.array(ldelta_px, order = 'F')
+    # ldelta_rex = np.array(ldelta_rex, order = 'F')
 
+    # myg.ng = 5
+    # ivars.nvar = 5
+
+    # V_l, V_r = interface_f.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
+    #                               ivars.nvar,
+    #                               gamma,
+    #                               r, u, v, p, re,
+    #                               ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px, ldelta_rex)
+    
+    # myg.ng = 4
+    # ivars.nvar = 4
     V_l, V_r = interface_f.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
                                   ivars.nvar,
-                                  speed,
+                                  gamma,
                                   r, u, v, p,
                                   ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
 
+    # keyboard()
     tm_states.end()
-
 
     # transform interface states back into conserved variables
     U_xl = comp.prim_to_cons(V_l, gamma, ivars, myg)
@@ -265,11 +286,17 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     # left and right primitive variable states
     tm_states.begin()
 
-    V_l, V_r = interface_f.states(2, myg.qx, myg.qy, myg.ng, myg.dy, dt,
+    # V_l, V_r = interface_f.states(2, myg.qx, myg.qy, myg.ng, myg.dy, dt,
+    #                               ivars.nvar,
+    #                               gamma,
+    #                               r, u, v, p, re,
+    #                               ldelta_ry, ldelta_uy, ldelta_vy, ldelta_py, ldelta_rey)
+
+    V_l, V_r = interface_f.states(2, myg.qx, myg.qy, myg.ng, myg.dx, dt,
                                   ivars.nvar,
-                                  speed,
+                                  gamma,
                                   r, u, v, p,
-                                  ldelta_ry, ldelta_uy, ldelta_vy, ldelta_py)
+                                  ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
 
     tm_states.end()
 
@@ -278,6 +305,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     U_yl = comp.prim_to_cons(V_l, gamma, ivars, myg)
     U_yr = comp.prim_to_cons(V_r, gamma, ivars, myg)
 
+    #myg.ng = 4
     #=========================================================================
     # apply source terms
     #=========================================================================
@@ -307,15 +335,17 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     U_yr.v(buf=1, n=ivars.iymom)[:,:] += 0.5*dt*ymom_src.v(buf=1)
     U_yr.v(buf=1, n=ivars.iener)[:,:] += 0.5*dt*E_src.v(buf=1)
 
-
     #=========================================================================
     # compute transverse fluxes
     #=========================================================================
     tm_riem = tc.timer("riemann")
     tm_riem.begin()
 
+
     riemann = rp.get_param("compressible.riemann")
+
     riemann = "CGF"
+
     if riemann == "HLLC":
         riemannFunc = interface_f.riemann_hllc
     elif riemann == "CGF":
@@ -323,22 +353,22 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     else:
         msg.fail("ERROR: Riemann solver undefined")
 
-
+    #myg.ng = 5
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
-                      real_gamma, pres, U_xl, U_xr)
+                      gamma, U_xl, U_xr)
+
 
     _fy = riemannFunc(2, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.yl, solid.yr,
-                      real_gamma, pres, U_yl, U_yr)
+                      gamma, U_yl, U_yr)
 
     F_x = ai.ArrayIndexer(d=_fx, grid=myg)
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)    
     
     tm_riem.end()
-
     #=========================================================================
     # construct the interface values of U now
     #=========================================================================
@@ -427,12 +457,12 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
-                      real_gamma, pres, U_xl, U_xr)
+                      gamma, U_xl, U_xr)
 
     _fy = riemannFunc(2, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.yl, solid.yr,
-                      real_gamma, pres, U_yl, U_yr)
+                      gamma, U_yl, U_yr)
 
     F_x = ai.ArrayIndexer(d=_fx, grid=myg)
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)
@@ -444,12 +474,15 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     #=========================================================================
     cvisc = rp.get_param("compressible.cvisc")
 
+    # myg.ng = 4
+    # ivars.nvar = 4
     _ax, _ay = interface_f.artificial_viscosity( 
         myg.qx, myg.qy, myg.ng, myg.dx, myg.dy, 
         cvisc, u, v)
 
     avisco_x = ai.ArrayIndexer(d=_ax, grid=myg)
     avisco_y = ai.ArrayIndexer(d=_ay, grid=myg)    
+    
     
     b = (2,1)
     
@@ -467,18 +500,3 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     tm_flux.end()
 
     return F_x, F_y
-
-def pres(densener):
-  pressure = PropsSI('P', 'UMASS', densener[1],'DMASS', densener[0], fluid)
-  pressure = np.array(pressure, order = 'F')
-  return pressure
-
-def real_gamma(denspres):
-  sos = PropsSI('A', 'P', denspres[1], 'DMASS', denspres[0], fluid)
-  rg = np.array((sos**2)*denspres[0]/denspres[1], order = 'F')
-  return rg
-
-def speed(prho):
-  sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], fluid)
-  #sos = np.array(sos, order = 'F')
-  return sos

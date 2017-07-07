@@ -1,0 +1,110 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module states__user__routines 
+    interface states_user_interface 
+        function speed(new_bn) result (sound) ! in :interface_f:interface_f.f90:states:unknown_interface
+            double precision dimension(2) :: new_bn
+            real :: sound
+        end function speed
+    end interface states_user_interface
+end python module states__user__routines
+python module riemann_cgf__user__routines 
+    interface riemann_cgf_user_interface 
+        function real_gamma(temp) result (temp1) ! in :interface_f:interface_f.f90:riemann_cgf:unknown_interface
+            double precision dimension(2) :: temp
+            real :: temp1
+        end function real_gamma
+        function pres(temp) result (temp1) ! in :interface_f:interface_f.f90:riemann_cgf:unknown_interface
+            double precision dimension(2) :: temp
+            real :: temp1
+        end function pres
+    end interface riemann_cgf_user_interface
+end python module riemann_cgf__user__routines
+python module interface_f ! in 
+    interface  ! in :interface_f
+        subroutine states(idir,qx,qy,ng,dx,dt,nvar,speed,r,u,v,p,ldelta_r,ldelta_u,ldelta_v,ldelta_p,q_l,q_r) ! in :interface_f:interface_f.f90
+            use states__user__routines
+            integer intent(in) :: idir
+            integer intent(in) :: qx
+            integer intent(in) :: qy
+            integer intent(in) :: ng
+            double precision intent(in) :: dx
+            double precision intent(in) :: dt
+            integer intent(in) :: nvar
+            external speed
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: r
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: u
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: v
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: p
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: ldelta_r
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: ldelta_u
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: ldelta_v
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: ldelta_p
+            double precision dimension(qx,qy,nvar),intent(out),depend(qx,qy,nvar) :: q_l
+            double precision dimension(qx,qy,nvar),intent(out),depend(qx,qy,nvar) :: q_r
+        end subroutine states
+        subroutine riemann_cgf(idir,qx,qy,ng,nvar,idens,ixmom,iymom,iener,lower_solid,upper_solid,real_gamma,pres,u_l,u_r,f) ! in :interface_f:interface_f.f90
+            use riemann_cgf__user__routines
+            integer intent(in) :: idir
+            integer intent(in) :: qx
+            integer intent(in) :: qy
+            integer intent(in) :: ng
+            integer intent(in) :: nvar
+            integer intent(in) :: idens
+            integer intent(in) :: ixmom
+            integer intent(in) :: iymom
+            integer intent(in) :: iener
+            integer intent(in) :: lower_solid
+            integer intent(in) :: upper_solid
+            external real_gamma
+            external pres
+            double precision dimension(qx,qy,nvar),intent(in),depend(qx,qy,nvar) :: u_l
+            double precision dimension(qx,qy,nvar),intent(in),depend(qx,qy,nvar) :: u_r
+            double precision dimension(qx,qy,nvar),intent(out),depend(qx,qy,nvar) :: f
+        end subroutine riemann_cgf
+        subroutine riemann_hllc(idir,qx,qy,ng,nvar,idens,ixmom,iymom,iener,lower_solid,upper_solid,gamma,u_l,u_r,f) ! in :interface_f:interface_f.f90
+            integer intent(in) :: idir
+            integer intent(in) :: qx
+            integer intent(in) :: qy
+            integer intent(in) :: ng
+            integer intent(in) :: nvar
+            integer intent(in) :: idens
+            integer intent(in) :: ixmom
+            integer intent(in) :: iymom
+            integer intent(in) :: iener
+            integer intent(in) :: lower_solid
+            integer intent(in) :: upper_solid
+            double precision intent(in) :: gamma
+            double precision dimension(qx,qy,nvar),intent(in),depend(qx,qy,nvar) :: u_l
+            double precision dimension(qx,qy,nvar),intent(in),depend(qx,qy,nvar) :: u_r
+            double precision dimension(qx,qy,nvar),intent(out),depend(qx,qy,nvar) :: f
+        end subroutine riemann_hllc
+        subroutine consflux(idir,gamma,idens,ixmom,iymom,iener,nvar,u_state,f) ! in :interface_f:interface_f.f90
+            integer intent(in) :: idir
+            double precision intent(in) :: gamma
+            integer intent(in) :: idens
+            integer intent(in) :: ixmom
+            integer intent(in) :: iymom
+            integer intent(in) :: iener
+            integer, optional,intent(in),check(len(u_state)>=nvar),depend(u_state) :: nvar=len(u_state)
+            double precision dimension(nvar),intent(in) :: u_state
+            double precision dimension(nvar),intent(out),depend(nvar) :: f
+        end subroutine consflux
+        subroutine artificial_viscosity(qx,qy,ng,dx,dy,cvisc,u,v,avisco_x,avisco_y) ! in :interface_f:interface_f.f90
+            integer intent(in) :: qx
+            integer intent(in) :: qy
+            integer intent(in) :: ng
+            double precision intent(in) :: dx
+            double precision intent(in) :: dy
+            double precision intent(in) :: cvisc
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: u
+            double precision dimension(qx,qy),intent(in),depend(qx,qy) :: v
+            double precision dimension(qx,qy),intent(out),depend(qx,qy) :: avisco_x
+            double precision dimension(qx,qy),intent(out),depend(qx,qy) :: avisco_y
+        end subroutine artificial_viscosity
+    end interface 
+end python module interface_f
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

@@ -1,41 +1,42 @@
 subroutine states(idir, qx, qy, ng, dx, dt, &
                   nvar, &
-                  speed, &
-                  r, u, v, p, &
-                  ldelta_r, ldelta_u, ldelta_v, ldelta_p, &
+                  gamma, &
+                  r, u, v, p, re, &
+                  ldelta_r, ldelta_u, ldelta_v, ldelta_p, ldelta_re, &
                   q_l, q_r)
-  !implicit none
-  EXTERNAL speed
+
+  implicit none
 
   integer, intent(in) :: idir
   integer, intent(in) :: qx, qy, ng
   double precision, intent(in) :: dx, dt
   integer, intent(in) :: nvar
-  !double precision, intent(in) :: gamma
+  double precision, intent(in) :: gamma
 
   ! 0-based indexing to match python
   double precision, intent(inout) :: r(0:qx-1, 0:qy-1)
   double precision, intent(inout) :: u(0:qx-1, 0:qy-1)
   double precision, intent(inout) :: v(0:qx-1, 0:qy-1)
   double precision, intent(inout) :: p(0:qx-1, 0:qy-1)
+  double precision, intent(inout) :: re(0:qx-1, 0:qy-1)
 
   double precision, intent(inout) :: ldelta_r(0:qx-1, 0:qy-1)
   double precision, intent(inout) :: ldelta_u(0:qx-1, 0:qy-1)
   double precision, intent(inout) :: ldelta_v(0:qx-1, 0:qy-1)
   double precision, intent(inout) :: ldelta_p(0:qx-1, 0:qy-1)
+  double precision, intent(inout) :: ldelta_re(0:qx-1, 0:qy-1)
 
   double precision, intent(  out) :: q_l(0:qx-1, 0:qy-1, 0:nvar-1)
   double precision, intent(  out) :: q_r(0:qx-1, 0:qy-1, 0:nvar-1)
 
-!F2PY (CALLBACK) speed
-!f2py depend(qx, qy) :: r, u, v, p
-!f2py depend(qx, qy) :: ldelta_r, ldelta_u, ldelta_v, ldelta_p
+!f2py depend(qx, qy) :: r, u, v, p, re
+!f2py depend(qx, qy) :: ldelta_r, ldelta_u, ldelta_v, ldelta_p, ldelta_re
 !f2py depend(qx, qy, nvar) :: q_l, q_r
-!f2py intent(in) :: r, u, v, p
-!f2py intent(in) :: ldelta_r, ldelta_u, ldelta_v, ldelta_p
+!f2py intent(in) :: r, u, v, p, re
+!f2py intent(in) :: ldelta_r, ldelta_u, ldelta_v, ldelta_p, ldelta_re
 !f2py intent(out) :: q_l, q_r
  
-
+!########## Rewritten for implementing real eos ###########!
 
   ! predict the cell-centered state to the edges in one-dimension
   ! using the reconstructed, limited slopes.
@@ -48,8 +49,8 @@ subroutine states(idir, qx, qy, ng, dx, dt, &
   ! We need the left and right eigenvectors and the eigenvalues for
   ! the system projected along the x-direction
   !                                      
-  ! Taking our state vector as Q = (rho, u, v, p)^T, the eigenvalues
-  ! are u - c, u, u + c. 
+  ! Taking our state vector as Q = (rho, u, v, p, rhoe)^T, the eigenvalues
+  ! are u - c, u, u, u, u + c. 
   !
   ! We look at the equations of hydrodynamics in a split fashion --
   ! i.e., we only consider one dimension at a time.
@@ -58,27 +59,33 @@ subroutine states(idir, qx, qy, ng, dx, dt, &
   ! the primitive variable formulation of the Euler equations
   ! projected in the x-direction is:
   !
-  !        / u   r   0   0 \
-  !        | 0   u   0  1/r |
-  !    A = | 0   0   u   0  |
-  !        \ 0  rc^2 0   u  /
+  !        / u   r   0   0  0 \
+  !        | 0   u   0  1/r 0 |
+  !    A = | 0   0   u   0  0 |
+  !        | 0  rc^2 0   u  0 |
+  !        \ 0  re+p 0   0  u /
+  !
+  ! In order to modify this for a genereal eos, we can add another variable
+  ! to the 'q' vector list that is, q = (r, u, p, rhoe)
   !            
   ! The right eigenvectors are
   !
-  !        /  1  \        / 1 \        / 0 \        /  1  \
-  !        |-c/r |        | 0 |        | 0 |        | c/r |
-  !   r1 = |  0  |   r2 = | 0 |   r3 = | 1 |   r4 = |  0  |
-  !        \ c^2 /        \ 0 /        \ 0 /        \ c^2 /
+  !        /  1  \        / 1 \        / 0 \       / 0 \        /  1  \
+  !        |-c/r |        | 0 |        | 0 |       | 0 |        | c/r |
+  !   r1 = |  0  |   r2 = | 0 |   r3 = | 1 |   r4 =| 0 |   r5 = |  0  |
+  !        | c^2 |        | 0 |        | 0 |       | 1 |        | c^2 |
+  !        \  h  /        \ 0 /        \ 0 /       \ 0 /        \  h  /
   !
   ! In particular, we see from r3 that the transverse velocity (v in
   ! this case) is simply advected at a speed u in the x-direction.
   !
   ! The left eigenvectors are
   !
-  !    l1 =     ( 0,  -r/(2c),  0, 1/(2c^2) )
-  !    l2 =     ( 1,     0,     0,  -1/c^2  )
-  !    l3 =     ( 0,     0,     1,     0    )
-  !    l4 =     ( 0,   r/(2c),  0, 1/(2c^2) )
+  !    l1 =     ( 0,  -r/(2c),  0, 1/(2c^2),  0 )
+  !    l2 =     ( 1,     0,     0,  -1/c^2,   0 )
+  !    l3 =     ( 0,     0,     1,     0,     0 )
+  !    l4 =     ( 0,     0,     0,  -h/c^2,   1 )
+  !    l5 =     ( 0,   r/(2c),  0, 1/(2c^2),  0 )
   !
   ! The fluxes are going to be defined on the left edge of the
   ! computational zones
@@ -100,11 +107,10 @@ subroutine states(idir, qx, qy, ng, dx, dt, &
   double precision :: lvec(0:nvar-1,0:nvar-1), rvec(0:nvar-1,0:nvar-1)
   double precision :: eval(0:nvar-1)
   double precision :: betal(0:nvar-1), betar(0:nvar-1)
-  double precision, dimension(0:1) :: new
 
   double precision :: dtdx, dtdx4
   double precision :: cs
-  real :: sound
+  double precision :: h
 
   double precision :: sum, sum_l, sum_r, factor
 
@@ -121,59 +127,63 @@ subroutine states(idir, qx, qy, ng, dx, dt, &
         dq(:) = [ldelta_r(i,j), &
                  ldelta_u(i,j), & 
                  ldelta_v(i,j), &
-                 ldelta_p(i,j)]
+                 ldelta_p(i,j), &
+                 ldelta_re(i,j)]
         
-        q(:) = [r(i,j), u(i,j), v(i,j), p(i,j)]
+        q(:) = [r(i,j), u(i,j), v(i,j), p(i,j), re(i,j)]
 
-        new = [p(i,j), r(i,j)]
-        sound = 0.0d0 + speed(new)
-        cs = sound
-        !cs = sqrt(gamma*p(i,j)/r(i,j))
+        cs = sqrt(gamma*p(i,j)/r(i,j))
+        h  = (re(i,j) + p(i,j))/r(i,j)
+
 
         ! compute the eigenvalues and eigenvectors
         if (idir == 1) then
-           eval(:) = [u(i,j) - cs, u(i,j), u(i,j), u(i,j) + cs]
+           eval(:) = [u(i,j) - cs, u(i,j), u(i,j), u(i,j), u(i,j) + cs]
         
-           lvec(0,:) = [ 0.0d0, -0.5d0*r(i,j)/cs, 0.0d0, 0.5d0/(cs*cs)  ]
-           lvec(1,:) = [ 1.0d0, 0.0d0,            0.0d0, -1.0d0/(cs*cs) ]
-           lvec(2,:) = [ 0.0d0, 0.0d0,            1.0d0, 0.0d0          ]
-           lvec(3,:) = [ 0.0d0, 0.5d0*r(i,j)/cs,  0.0d0, 0.5d0/(cs*cs)  ]
+           lvec(0,:) = [ 0.0d0, -0.5d0*r(i,j)/cs, 0.0d0, 0.5d0/(cs*cs),  0.0d0 ]
+           lvec(1,:) = [ 1.0d0, 0.0d0,            0.0d0, -1.0d0/(cs*cs), 0.0d0 ]
+           lvec(2,:) = [ 0.0d0, 0.0d0,            1.0d0, 0.0d0,          0.0d0 ]
+           lvec(3,:) = [ 0.0d0, 0.0d0,            0.0d0, -h/(cs*cs),     1.0d0 ]
+           lvec(4,:) = [ 0.0d0, 0.5d0*r(i,j)/cs,  0.0d0, 0.5d0/(cs*cs),  0.0d0 ]
 
-           rvec(0,:) = [1.0d0, -cs/r(i,j), 0.0d0, cs*cs ]
-           rvec(1,:) = [1.0d0, 0.0d0,      0.0d0, 0.0d0 ]
-           rvec(2,:) = [0.0d0, 0.0d0,      1.0d0, 0.0d0 ]
-           rvec(3,:) = [1.0d0, cs/r(i,j),  0.0d0, cs*cs ]
+           rvec(0,:) = [1.0d0, -cs/r(i,j), 0.0d0, cs*cs, h     ]
+           rvec(1,:) = [1.0d0, 0.0d0,      0.0d0, 0.0d0, 0.0d0 ]
+           rvec(2,:) = [0.0d0, 0.0d0,      1.0d0, 0.0d0, 0.0d0 ]
+           rvec(3,:) = [0.0d0, 0.0d0,      0.0d0, 1.0d0, 0.0d0 ]
+           rvec(4,:) = [1.0d0, cs/r(i,j),  0.0d0, cs*cs, h     ]
 
         else
-           eval = [v(i,j) - cs, v(i,j), v(i,j), v(i,j) + cs]
+           eval = [v(i,j) - cs, v(i,j), v(i,j), v(i,j), v(i,j) + cs]
                             
-           lvec(0,:) = [ 0.0d0, 0.0d0, -0.5d0*r(i,j)/cs, 0.5d0/(cs*cs)  ]
-           lvec(1,:) = [ 1.0d0, 0.0d0, 0.0d0,            -1.0d0/(cs*cs) ]
-           lvec(2,:) = [ 0.0d0, 1.0d0, 0.0d0,            0.0d0          ]
-           lvec(3,:) = [ 0.0d0, 0.0d0, 0.5d0*r(i,j)/cs,  0.5d0/(cs*cs)  ]
+           lvec(0,:) = [ 0.0d0, 0.0d0, -0.5d0*r(i,j)/cs, 0.5d0/(cs*cs),  0.0d0 ]
+           lvec(1,:) = [ 1.0d0, 0.0d0, 0.0d0,            -1.0d0/(cs*cs), 0.0d0 ]
+           lvec(2,:) = [ 0.0d0, 1.0d0, 0.0d0,            0.0d0,          0.0d0 ]
+           lvec(3,:) = [ 0.0d0, 0.0d0, 0.0d0,            -h/(cs*cs),     1.0d0 ]
+           lvec(4,:) = [ 0.0d0, 0.0d0, 0.5d0*r(i,j)/cs,  0.5d0/(cs*cs),  0.0d0 ]
 
-           rvec(0,:) = [1.0d0, 0.0d0, -cs/r(i,j), cs*cs ]
-           rvec(1,:) = [1.0d0, 0.0d0, 0.0d0,      0.0d0 ]
-           rvec(2,:) = [0.0d0, 1.0d0, 0.0d0,      0.0d0 ]
-           rvec(3,:) = [1.0d0, 0.0d0, cs/r(i,j),  cs*cs ]
+           rvec(0,:) = [1.0d0, 0.0d0, -cs/r(i,j), cs*cs, h     ]
+           rvec(1,:) = [1.0d0, 0.0d0, 0.0d0,      0.0d0, 0.0d0 ]
+           rvec(2,:) = [0.0d0, 1.0d0, 0.0d0,      0.0d0, 0.0d0 ]
+           rvec(3,:) = [0.0d0, 0.0d0, 0.0d0,      1.0d0, 0.0d0 ]
+           rvec(4,:) = [1.0d0, 0.0d0, cs/r(i,j),  cs*cs, h     ]
 
         endif
 
         ! define the reference states
         if (idir == 1) then
            ! this is one the right face of the current zone,
-           ! so the fastest moving eigenvalue is eval[3] = u + c
-           factor = 0.5d0*(1.0d0 - dtdx*max(eval(3), 0.0d0))
+           ! so the fastest moving eigenvalue is eval[4] = u + c
+           factor = 0.5d0*(1.0d0 - dtdx*max(eval(4), 0.0d0))
            q_l(i+1,j,:) = q(:) + factor*dq(:)
                
            ! left face of the current zone, so the fastest moving
-           ! eigenvalue is eval[3] = u - c
+           ! eigenvalue is eval[0] = u - c
            factor = 0.5d0*(1.0d0 + dtdx*min(eval(0), 0.0d0))
            q_r(i,  j,:) = q(:) - factor*dq(:)
     
         else
 
-           factor = 0.5d0*(1.0d0 - dtdx*max(eval(3), 0.0d0))
+           factor = 0.5d0*(1.0d0 - dtdx*max(eval(4), 0.0d0))
            q_l(i,j+1,:) = q(:) + factor*dq(:)
 
            factor = 0.5d0*(1.0d0 + dtdx*min(eval(0), 0.0d0))
@@ -182,15 +192,15 @@ subroutine states(idir, qx, qy, ng, dx, dt, &
         endif
 
         ! compute the Vhat functions
-        do m = 0, 3
+        do m = 0, 4
            sum = dot_product(lvec(m,:),dq(:))
 
-           betal(m) = dtdx4*(eval(3) - eval(m))*(sign(1.0d0,eval(m)) + 1.0d0)*sum
+           betal(m) = dtdx4*(eval(4) - eval(m))*(sign(1.0d0,eval(m)) + 1.0d0)*sum
            betar(m) = dtdx4*(eval(0) - eval(m))*(1.0d0 - sign(1.0d0,eval(m)))*sum
         enddo
 
         ! construct the states
-        do m = 0, 3
+        do m = 0, 4
            sum_l = dot_product(betal(:),rvec(:,m))
            sum_r = dot_product(betar(:),rvec(:,m))
 
@@ -203,7 +213,6 @@ subroutine states(idir, qx, qy, ng, dx, dt, &
            endif
 
         enddo
-
      enddo
   enddo
 
@@ -213,24 +222,26 @@ end subroutine states
 subroutine riemann_cgf(idir, qx, qy, ng, &
                        nvar, idens, ixmom, iymom, iener, &
                        lower_solid, upper_solid, &
-                       real_gamma, pres, U_l, U_r, F)
+                       gamcl, gamcr, U_l, U_r, F)
 
-  !implicit none
-  EXTERNAL real_gamma
-  EXTERNAL pres
+  implicit none
 
   integer, intent(in) :: idir
   integer, intent(in) :: qx, qy, ng
   integer, intent(in) :: nvar, idens, ixmom, iymom, iener
   integer, intent(in) :: lower_solid, upper_solid
+  !double precision, intent(in) :: gamma
 
   ! 0-based indexing to match python 
   double precision, intent(inout) :: U_l(0:qx-1,0:qy-1,0:nvar-1)
   double precision, intent(inout) :: U_r(0:qx-1,0:qy-1,0:nvar-1)
+  double precision, intent(inout) :: gamcl(0:qx-1, 0:qy-1)
+  double precision, intent(inout) :: gamcr(0:qx-1, 0:qy-1)
+  !double precision, intent(inout) ::
   double precision, intent(  out) :: F(0:qx-1,0:qy-1,0:nvar-1)
-!F2PY (CALLBACK) real_gamma
-!F2PY (CALLBACK) pres
-!f2py depend(qx, qy, nvar) :: U_l, U_r     
+
+!f2py depend(qx, qy, nvar) :: U_l, U_r
+!f2py depend(qx, qy) :: gamcl, gamcr     
 !f2py intent(in) :: U_l, U_r
 !f2py intent(out) :: F
 
@@ -266,10 +277,9 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
   integer :: i, j
 
   double precision, parameter :: smallc = 1.e-10
+  !for real eos, smallc(i,j)
   double precision, parameter :: smallrho = 1.e-10
   double precision, parameter :: smallp = 1.e-10
-  double precision, dimension(0:1) :: temp
-  real :: temp1
 
   double precision :: rho_l, un_l, ut_l, rhoe_l, p_l
   double precision :: rho_r, un_r, ut_r, rhoe_r, p_r
@@ -279,9 +289,9 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
   double precision :: lambda_l, lambdastar_l, lambda_r, lambdastar_r
   double precision :: W_l, W_r, c_l, c_r, sigma
   double precision :: alpha
-  double precision :: eint_l, eint_r
+  double precision :: sgnm
 
-  double precision :: rho_state, un_state, ut_state, p_state, rhoe_state
+  double precision :: rho_state, un_state, ut_state, p_state, rhoe_state, gamc_state
   
 
   nx = qx - 2*ng; ny = qy - 2*ng
@@ -303,13 +313,10 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
         endif
 
         rhoe_l = U_l(i,j,iener) - 0.5*rho_l*(un_l**2 + ut_l**2)
-        eint_l = rhoe_l/rho_l
+        !rhoe_l = ql(i,j,QREINT) => U_l(i,j, idens)*eos_state(e)
 
-
-        temp = [rho_l, eint_l]
-        temp1 = 0.0d0 + pres(temp)
-        p_l = temp1
         !p_l   = rhoe_l*(gamma - 1.0d0)
+        p_l = U_l(i,j, 3)
         p_l = max(p_l, smallp)
 
         rho_r  = U_r(i,j,idens)
@@ -323,32 +330,26 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
         endif
 
         rhoe_r = U_r(i,j,iener) - 0.5*rho_r*(un_r**2 + ut_r**2)
-        eint = rhoe_r/rho_r
+        !rhoe_r = qr(i,j,QREINT) => U_r(i,j, idens)*eos_state(e)
 
-        temp = [rho_r, eint_r]
-        temp1 = 0.0d0 + pres(temp)
-        p_r = temp1
         !p_r   = rhoe_r*(gamma - 1.0d0)
-        p_r = max(p_r, smallp)
-            
+        p_r = U_r(i,j,3)
+        p_r = max(p_r, smallp)   
 
         ! define the Lagrangian sound speed
-        temp = [rho_l, p_l]
-        temp1 = 0.0d0 + real_gamma(temp)
-        gamma_l = temp1
+        ! equation 9.61 from castro userguide, here 'w' refers to rhoc
+        !W_l = max(smallrho*smallc, sqrt(gamma*p_l*rho_l))
+        !_r = max(smallrho*smallc, sqrt(gamma*p_r*rho_r))
+        !for real gas it becomes,
+        W_l = max(smallrho*smallc, sqrt(gamcl(i,j)*p_l*rho_l))
+        W_r = max(smallrho*smallc, sqrt(gamcr(i,j)*p_r*rho_r))
+        
 
-        temp = [rho_r, p_r]
-        temp1 = 0.0d0 + real_gamma(temp)
-        gamma_r = temp1
+        ! and the regular sound speeds, this is absolutely not valid for real gas
+        c_l = max(smallc, sqrt(gamcl(i,j)*p_l/rho_l))
+        c_r = max(smallc, sqrt(gamcr(i,j)*p_r/rho_r))
 
-        W_l = max(smallrho*smallc, sqrt(gamma_l*p_l*rho_l))
-        W_r = max(smallrho*smallc, sqrt(gamma_r*p_r*rho_r))
-
-        ! and the regular sound speeds
-        c_l = max(smallc, sqrt(gamma_l*p_l/rho_l))
-        c_r = max(smallc, sqrt(gamma_r*p_r/rho_r))
-
-        ! define the star states
+        ! define the star states, (eq. 9.62)
         pstar = (W_l*p_r + W_r*p_l + W_l*W_r*(un_l - un_r))/(W_l + W_r)
         pstar = max(pstar, smallp)
         ustar = (W_l*un_l + W_r*un_r + (p_l - p_r))/(W_l + W_r)
@@ -363,18 +364,8 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
         rhoestar_r = rhoe_r + &
              (pstar - p_r)*(rhoe_r/rho_r + p_r/rho_r)/c_r**2
 
-        temp = [rhostar_l, pstar]
-        temp1 = 0.0d0 + real_gamma(temp)
-        gamma_l = temp1
-
-        temp = [rhostar_r, pstar]
-        temp1 = 0.0d0 + real_gamma(temp)
-        gamma_r = temp1
-
-        !gamma_l = real_gamma(rhostar_l, pstar)
-        !gamma_r = real_gamma(rhostar_r, pstar)
-        cstar_l = max(smallc,sqrt(gamma_l*pstar/rhostar_l))
-        cstar_r = max(smallc,sqrt(gamma_r*pstar/rhostar_r))
+        cstar_l = max(smallc,sqrt(gamcl(i,j)*pstar/rhostar_l))
+        cstar_r = max(smallc,sqrt(gamcr(i,j)*pstar/rhostar_r))
 
         ! figure out which state we are in, based on the location of
         ! the waves
@@ -387,6 +378,9 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
            ut_state = ut_l
 
            ! define eigenvalues
+           !sgnm = sign(ONE, ustar)
+           !lambda_l = c_state - sgnm*U_state
+           !lambdastar_l = cstar - sgnm*ustar
            lambda_l = un_l - c_l
            lambdastar_l = ustar - cstar_l
 
@@ -400,13 +394,15 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = un_l
                  p_state = p_l
                  rhoe_state = rhoe_l
+                 gamc_state = gamcl(i,j)
                  
               else
                  ! solution is *L state
                  rho_state = rhostar_l
                  un_state = ustar
                  p_state = pstar
-                 rhoe_state = rhoestar_l                        
+                 rhoe_state = rhoestar_l
+                 gamc_state = gamcl(i,j)                       
               endif
 
            else
@@ -418,6 +414,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = ustar
                  p_state = pstar
                  rhoe_state = rhoestar_l
+                 gamc_state = gamcl(i,j)
                  
               else if (lambda_l > 0.0d0 .and. lambdastar_l > 0.0d0) then
                  ! rarefaction fan is moving to the right -- solution is
@@ -426,6 +423,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = un_l
                  p_state = p_l
                  rhoe_state = rhoe_l
+                 gamc_state = gamcl(i,j)
 
               else
                  ! rarefaction spans x/t = 0 -- interpolate
@@ -435,6 +433,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state   = alpha*ustar      + (1.0d0 - alpha)*un_l
                  p_state    = alpha*pstar      + (1.0d0 - alpha)*p_l
                  rhoe_state = alpha*rhoestar_l + (1.0d0 - alpha)*rhoe_l
+                 gamc_state = alpha*gamcl(i,j) + (1.0d0 - alpha)*gamcl(i,j)
               endif
 
            endif
@@ -461,6 +460,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = ustar
                  p_state = pstar
                  rhoe_state = rhoestar_r
+                 gamc_state = gamcr(i,j)
 
               else
                  ! solution is R state
@@ -468,6 +468,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = un_r
                  p_state = p_r
                  rhoe_state = rhoe_r
+                 gamc_state = gamcr(i,j)
               endif
 
            else
@@ -479,6 +480,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = un_r
                  p_state = p_r
                  rhoe_state = rhoe_r
+                 gamc_state = gamcr(i,j)
                         
               else if (lambda_r > 0.0d0 .and. lambdastar_r > 0.0d0) then
                  ! rarefaction fan is moving to the right -- solution is
@@ -487,6 +489,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state = ustar
                  p_state = pstar
                  rhoe_state = rhoestar_r
+                 gamc_state = gamcr(i,j)
                  
               else
                  ! rarefaction spans x/t = 0 -- interpolate
@@ -496,6 +499,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
                  un_state   = alpha*ustar      + (1.0d0 - alpha)*un_r
                  p_state    = alpha*pstar      + (1.0d0 - alpha)*p_r
                  rhoe_state = alpha*rhoestar_r + (1.0d0 - alpha)*rhoe_r
+                 gamc_state = alpha*gamcr(i,j) + (1.0d0 - alpha)*gamcr(i,j)
                         
               endif
               
@@ -508,6 +512,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
            ut_state = 0.5*(ut_l + ut_r)
            p_state = pstar
            rhoe_state = 0.5*(rhoestar_l + rhoestar_r)
+           gamc_state = 0.5*(gamcl(i,j)+gamcr(i,j))
 
         endif
 
@@ -531,6 +536,25 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
            endif
 
         endif
+
+        !for real gas eos
+        !rho_state = max(small_dens, ro)
+
+        !c_state = sqrt(abs(gamc_state*p_state/rho_state))
+        !c_state = max(smallc, c_state)
+
+        !drho = (pstar - p_state)/c_state**2
+        !rho_star = rho_state + drho
+        !rho_star = max(small_dens, rho_star)
+
+        !enth_state = (rhoe_state/rho_state + p_state/rho_state)/c_state**2
+        !e_star = rhoe_state + (pstar - p_state)*enth_state
+
+        !cstar = sqrt(abs(gamc_state*pstar/rho_star))
+        !cstar = max(cstar, smallc)
+
+        !sgnm = sign(ONE, ustar)
+        !spout = c_state - sgnm*U_state
 
         ! compute the fluxes
         F(i,j,idens) = rho_state*un_state
