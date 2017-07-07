@@ -125,14 +125,13 @@ Updating U_{i,j}:
 """
 
 import compressible.eos as eos
-import compressible.interface_f as interface_f
+import compressible.interface_f1 as interface_f
 import compressible as comp
 import mesh.reconstruction as reconstruction
 import mesh.reconstruction_f as reconstruction_f
 import mesh.array_indexer as ai
 from pdb import set_trace as keyboard
 import numpy as np
-import compressible.interface_f1 as interface_f1
 
 from util import msg
 
@@ -254,22 +253,22 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     # ldelta_px = np.array(ldelta_px, order = 'F')
     # ldelta_rex = np.array(ldelta_rex, order = 'F')
 
-    myg.ng = 5
-    ivars.nvar = 5
+    # myg.ng = 5
+    # ivars.nvar = 5
 
-    V_l, V_r = interface_f.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
-                                  ivars.nvar,
-                                  gamma,
-                                  r, u, v, p, re,
-                                  ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px, ldelta_rex)
+    # V_l, V_r = interface_f.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
+    #                               ivars.nvar,
+    #                               gamma,
+    #                               r, u, v, p, re,
+    #                               ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px, ldelta_rex)
     
     # myg.ng = 4
     # ivars.nvar = 4
-    # V_l1, V_r2 = interface_f1.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
-    #                               ivars.nvar,
-    #                               gamma,
-    #                               r, u, v, p,
-    #                               ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
+    V_l, V_r = interface_f.states(1, myg.qx, myg.qy, myg.ng, myg.dx, dt,
+                                  ivars.nvar,
+                                  gamma,
+                                  r, u, v, p,
+                                  ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
 
     # keyboard()
     tm_states.end()
@@ -287,11 +286,17 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     # left and right primitive variable states
     tm_states.begin()
 
-    V_l, V_r = interface_f.states(2, myg.qx, myg.qy, myg.ng, myg.dy, dt,
+    # V_l, V_r = interface_f.states(2, myg.qx, myg.qy, myg.ng, myg.dy, dt,
+    #                               ivars.nvar,
+    #                               gamma,
+    #                               r, u, v, p, re,
+    #                               ldelta_ry, ldelta_uy, ldelta_vy, ldelta_py, ldelta_rey)
+
+    V_l, V_r = interface_f.states(2, myg.qx, myg.qy, myg.ng, myg.dx, dt,
                                   ivars.nvar,
                                   gamma,
-                                  r, u, v, p, re,
-                                  ldelta_ry, ldelta_uy, ldelta_vy, ldelta_py, ldelta_rey)
+                                  r, u, v, p,
+                                  ldelta_rx, ldelta_ux, ldelta_vx, ldelta_px)
 
     tm_states.end()
 
@@ -300,7 +305,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     U_yl = comp.prim_to_cons(V_l, gamma, ivars, myg)
     U_yr = comp.prim_to_cons(V_r, gamma, ivars, myg)
 
-    myg.ng = 4
+    #myg.ng = 4
     #=========================================================================
     # apply source terms
     #=========================================================================
@@ -348,17 +353,17 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     else:
         msg.fail("ERROR: Riemann solver undefined")
 
-    myg.ng = 5
+    #myg.ng = 5
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
-                      gamcl, gamcr, U_xl, U_xr)
+                      gamma, U_xl, U_xr)
 
 
     _fy = riemannFunc(2, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.yl, solid.yr,
-                      gamcl, gamcr, U_yl, U_yr)
+                      gamma, U_yl, U_yr)
 
     F_x = ai.ArrayIndexer(d=_fx, grid=myg)
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)    
@@ -452,12 +457,12 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
-                      gamcl, gamcr, U_xl, U_xr)
+                      gamma, U_xl, U_xr)
 
     _fy = riemannFunc(2, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.yl, solid.yr,
-                      gamcl, gamcr, U_yl, U_yr)
+                      gamma, U_yl, U_yr)
 
     F_x = ai.ArrayIndexer(d=_fx, grid=myg)
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)
@@ -469,8 +474,8 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     #=========================================================================
     cvisc = rp.get_param("compressible.cvisc")
 
-    myg.ng = 4
-    ivars.nvar = 4
+    # myg.ng = 4
+    # ivars.nvar = 4
     _ax, _ay = interface_f.artificial_viscosity( 
         myg.qx, myg.qy, myg.ng, myg.dx, myg.dy, 
         cvisc, u, v)

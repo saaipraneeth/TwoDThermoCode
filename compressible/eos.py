@@ -2,6 +2,9 @@
 This is a gamma-law equation of state: p = rho e (gamma - 1), where
 gamma is the constant ratio of specific heats.
 """
+from CoolProp.CoolProp import PropsSI
+from CoolProp.CoolProp import PhaseSI
+fluid = 'Oxygen'
 from pdb import set_trace as keyboard
 
 def pres(gamma, dens, eint):
@@ -24,7 +27,9 @@ def pres(gamma, dens, eint):
        The pressure
 
      """
-    p = dens*eint*(gamma - 1.0)
+    #p = dens*eint*(gamma - 1.0)
+    p = PropsSI('P', 'UMASS', ener,'DMASS', dens, fluid)
+    p = np.array(p, order = 'F')
     return p
 
 
@@ -48,11 +53,13 @@ def dens(gamma, pres, eint):
        The density
 
     """
-    dens = pres/(eint*(gamma - 1.0))
+    #dens = pres/(eint*(gamma - 1.0))
+    dens = PropsSI('DMASS', 'UMASS', eint,'P', pres, fluid)
+    dens = np.array(dens, order = 'F')
     return dens
 
 
-def rhoe(gamma, pres):
+def rhoe(dens, pres):
     """
     Given the pressure, return (rho * e)
 
@@ -69,5 +76,7 @@ def rhoe(gamma, pres):
        The internal energy density, rho e
 
     """
-    rhoe = pres/(gamma - 1.0)
+    #rhoe = pres/(gamma - 1.0)
+    eint = PropsSI('UMASS', 'P', pres, 'DMASS', dens, fluid)
+    rhoe = np.array(dens*eint, order = 'F')
     return rhoe
