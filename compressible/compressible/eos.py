@@ -7,7 +7,7 @@ from CoolProp.CoolProp import PhaseSI
 fluid = 'Oxygen'
 from pdb import set_trace as keyboard
 import numpy as np
-from preos import peng_robinson_fluid as PREOS
+#from preos import peng_robinson_fluid as PREOS
 import thermodynamics_tools as tools
 
 def pres(dens, eint):
@@ -45,8 +45,8 @@ def pres(dens, eint):
     #     p = PropsSI('P', 'UMASS', eint,'DMASS', dens, fluid)
     #     p = np.array(p, order = 'F')
     #     return p
-    MW = 32.0
-    vol = tools.getVfromRho(dens, MW)
+    MW = 32
+    vol = tools.getvfromrho(dens, MW)
     T_in = PREOS.NewtonIterate_TemperaturefromEv(eint,vol, T_in = 300.0 ,eps=1E-6,omega=1.0)
     p = PREOS.getPressurefromVolumeTemperature(vol,T_in)
     return p
