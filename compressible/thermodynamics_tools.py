@@ -55,13 +55,18 @@ def getRhofromV(v,MW):
 
 def getVfromRho(rho,MW):
     '''computes  molar volume from density'''
+    if (np.size(rho) == 18) and (rho[0] == 0.0):
+      keyboard()
     return MW/(rho*1E3)
 
 
 #------------------------------------------------------------------
 # Finds the Cp and Cv of the ideal gas. Output in J/(kg K)
 #------------------------------------------------------------------
-def getCp_ideal(coef,T,RoM):  
+def getCp_ideal(coef,T,RoM):
+    if not(len(coef.shape) == 2):
+      coef = coef[0]
+      return RoM*(coef[0]  + coef[1]*T + coef[2]*T**2  + coef[3]*T**3  + coef[4]*T**4 )  
     return RoM*(coef[:,0]  + coef[:,1]*T + coef[:,2]*T**2  + coef[:,3]*T**3  + coef[:,4]*T**4 )
 
 def getCv_ideal(coef,T,RoM):
@@ -78,8 +83,12 @@ def getH_ideal(coef,T,RoM):
 
     #if (True in np.isnan(T)):
 	#os._exit("NAN found in temperature in processor " + repr(mpi_rank))
-
+    if not(len(coef.shape) == 2):
+      coef = coef[0]
+      H_ideal = T*RoM*(coef[0] + coef[1]*T/2.0 + coef[2]*T**2/3.0 + coef[3]*T**3/4.0 + coef[4] * T**4/5.0+ coef[5] / T)
+      return H_ideal
     H_ideal = T*RoM*(coef[:,0] + coef[:,1]*T/2.0 + coef[:,2]*T**2/3.0 + coef[:,3]*T**3/4.0 + coef[:,4] * T**4/5.0+ coef[:,5] / T)
+
     return H_ideal
 
 def getE_ideal(coef,T,RoM):

@@ -30,7 +30,7 @@ class peng_robinson_fluid():
     def __init__(self):
       #self.setup    = setup
       self.Rcst     = 8.3144621	                #J/(mol*K)
-      self.Nxc      = 136		# Loading number of grid points (with ghost cells pre-accounted for) from grid object
+      self.Nxc      = 18		# Loading number of grid points (with ghost cells pre-accounted for) from grid object
       self.gamma    = np.ones(self.Nxc)		# INCORRECT # what about CH3OH and C12H26 ?????
 
       self.mu       = np.zeros(self.Nxc)
@@ -288,11 +288,12 @@ class peng_robinson_fluid():
 
 
     def getSpeedOfSound(self, P_in, T_in): #Miller 2001 2.14
+
       if isinstance(T_in, float):
         self.computed2AdT2(T_in)
-        self.setNASAcoeff(T_in)
-        rho = self.getDensityfromPressureTemperature(P_in,T_in)[0]     
+        rho = self.getDensityfromPressureTemperature(P_in,T_in)[0]  
         v_in = tools.getVfromRho(rho, self.MW)
+        self.setRealFluidThermodynamics(v_in, T_in)
         self.computeK1(v_in)
         K_S = self.getIsentropicComp(v_in, T_in)
         return np.sqrt(1.0/(rho*K_S))
@@ -352,9 +353,10 @@ class peng_robinson_fluid():
       #    Newton Iteration to find temperature. Needs to pass energy in molar form!!!  
       T_n = T_in * np.ones(v_target.size)
       self.setRealFluidThermodynamics(v_target,T_n)
-      e_n = self.getEnergyfromVolumeTemperature(v_target,T_n)
+      e_n = self.getEnergyfromVolumeTemperature(v_target,T_n)[0]
       cv_n = self.getCv(v_target,T_n)
       diff = (e_n - e_target)/e_target
+      keyboard()
       prevdiff = diff.copy()
       itera=0 
       #Newton solver
@@ -390,11 +392,15 @@ class peng_robinson_fluid():
         pointwise_converged = np.array(pointwise_converged)
         itera+=1
 
+      return T_n
+
     def NewtonIterate_TemperaturefromPrho(self,rho_target,P_target, T_in=300.0,eps=1E-10,omega=1.0):
       T_n = T_in * np.ones(rho_target.shape)  
       v_target= tools.getVfromRho(rho_target,self.MW)
       self.setRealFluidThermodynamics(v_target,T_n)
       P_n  = self.getPressurefromVolumeTemperature(v_target,T_n)
+      # if P_target.any() == 0:
+      #   keyboard()
       diff = (P_n - P_target) / P_target
       prevdiff = diff
       diff0 = max(abs(diff))
@@ -449,7 +455,6 @@ class peng_robinson_fluid():
       dAdT = self.getdAdT(T_in,self.A,self.G)
 
       int_e = e0 + self.K1* ( self.A - T_in*dAdT )
-      keyboard()
       return e0 + self.K1* ( self.A - T_in*dAdT )
 
     def getEnthalpyfromVolumeTemperature(self,v_in,T_in,p_in):    

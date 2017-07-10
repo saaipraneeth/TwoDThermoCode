@@ -137,6 +137,8 @@ from util import msg
 from CoolProp.CoolProp import PropsSI
 from CoolProp.CoolProp import PhaseSI
 fluid = 'Oxygen'
+import preos
+PREOS = preos.peng_robinson_fluid()
 
 def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     """
@@ -469,8 +471,10 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     return F_x, F_y
 
 def pres(densener):
-  vol = tools.getvfromrho(dens)
-  T_in = PREOS.NewtonIterate_TemperaturefromEv(eint,vol, T_in,eps=1E-6,omega=1.0)
+  MW = 32.0
+  print densener[0]
+  vol = tools.getVfromRho(densener[0], MW)
+  T_in = PREOS.NewtonIterate_TemperaturefromEv(densener[1],vol, T_in,eps=1E-6,omega=1.0)
   p = PREOS.getPressurefromVolumeTemperature(vol,T_in)
 
   # pressure = PropsSI('P', 'UMASS', densener[1],'DMASS', densener[0], fluid)
@@ -479,7 +483,7 @@ def pres(densener):
   return p
 
 def real_gamma(denspres):
-  T_in = PREOS.NewtonIterate_TemperaturefromPrho(denspres[1], denspres[0], T_in = 300.0, eps= 1E-10, omega = 1.0)
+  T_in = PREOS.NewtonIterate_TemperaturefromPrho(denspres[0], denspres[1], T_in = 300.0, eps= 1E-10, omega = 1.0)
   sos = PREOS.getSpeedOfSound(denspres[1], T_in)
 
   #sos = PropsSI('A', 'P', denspres[1], 'DMASS', denspres[0], fluid)
@@ -487,7 +491,7 @@ def real_gamma(denspres):
   return rg
 
 def speed(prho):
-  T_in = PREOS.NewtonIterate_TemperaturefromPrho(prho[0], prho[1], T_in = 300.0, eps= 1E-10, omega = 1.0)
+  T_in = PREOS.NewtonIterate_TemperaturefromPrho(prho[1], prho[0], T_in = 300.0, eps= 1E-10, omega = 1.0)
   sos = PREOS.getSpeedOfSound(prho[0], T_in)
 
   #sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], "Oxygen")

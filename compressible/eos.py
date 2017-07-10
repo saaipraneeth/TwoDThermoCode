@@ -7,8 +7,10 @@ from CoolProp.CoolProp import PhaseSI
 fluid = 'Oxygen'
 from pdb import set_trace as keyboard
 import numpy as np
-from preos import peng_robinson_fluid as PREOS
+import preos
 import thermodynamics_tools as tools
+
+PREOS = preos.peng_robinson_fluid()
 
 def pres(dens, eint):
     """
@@ -47,8 +49,20 @@ def pres(dens, eint):
     #     return p
     MW = 32.0
     vol = tools.getVfromRho(dens, MW)
-    T_in = PREOS.NewtonIterate_TemperaturefromEv(eint,vol, T_in = 300.0 ,eps=1E-6,omega=1.0)
-    p = PREOS.getPressurefromVolumeTemperature(vol,T_in)
+    T = np.ones(np.shape(vol))
+    p = np.ones(np.shape(vol))
+    if (vol.ndim == 2):
+        for i in range(np.shape(vol)[0]):
+            for j in range(np.shape(vol)[1]):
+                if dens[i][j] < 0.1 :
+                    p[i][j] = 0.0
+                    continue
+                T[i][j] = PREOS.NewtonIterate_TemperaturefromEv(eint[i][j]*0.001,vol[i][j], T_in = 300.0 ,eps=1E-6,omega=1.0)
+                p[i][j] = PREOS.getPressurefromVolumeTemperature(vol[i][j],T[i][j])
+        return p
+    else:
+        T_in = PREOS.NewtonIterate_TemperaturefromEv(eint,vol, T_in = 300.0 ,eps=1E-6,omega=1.0)
+        p = PREOS.getPressurefromVolumeTemperature(vol,T_in)
     return p
 
 
@@ -111,12 +125,30 @@ def rhoe(dens, pres):
     #     eint = PropsSI('P', 'UMASS', eint,'DMASS', dens, fluid)
     #     rhoe = np.array(dens*eint, order = 'F')
     #     return rhoe
+    MW = 32.0
 
-    T_in = PREOS.NewtonIterate_TemperaturefromPrho(dens, pres, T_in = 300.0, eps= 1E-10, omega = 1.0)
-    eint = PREOS.getEnergyfromVolumeTemperature(T_in)
-    rhoe = dens*eint
+    T = np.ones(np.shape(dens))
+    eint = np.ones(np.shape(dens))
+    if (dens.ndim == 2):
+        for i in range(np.shape(dens)[0]):
+            for j in range(np.shape(dens)[1]):
+                if dens[i][j] < 0.1:
+                    eint[i][j] = 0.0
+                    continue
+                T[i][j] = PREOS.NewtonIterate_TemperaturefromPrho(dens[i][j], pres[i][j], T_in = 300.0, eps= 1E-10, omega = 1.0)
+                eint[i][j] = PREOS.getEnergyfromVolumeTemperature(dens[i][j], T[i][j])
+        return dens*eint
+    else:
+        T = PREOS.NewtonIterate_TemperaturefromPrho(dens, pres, T_in = 300.0, eps= 1E-10, omega = 1.0)
+        eint = PREOS.getEnergyfromVolumeTemperature(dens,T)
+    return dens*eint
+
+
+    # T_in = PREOS.NewtonIterate_TemperaturefromPrho(dens, pres, T_in = 300.0, eps= 1E-10, omega = 1.0)
+    # eint = PREOS.getEnergyfromVolumeTemperature(T_in)
+    # rhoe = dens*eint
     #rhoe = np.array(dens*eint, order = 'F')
-    return rhoe
+    # return rhoe
 
     # eint = PropsSI('UMASS', 'P', pres, 'DMASS', dens, fluid)
     # rhoe = np.array(dens*eint, order = 'F')
