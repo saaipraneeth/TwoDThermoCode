@@ -253,7 +253,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
 
     tm_states.end()
 
-
+    keyboard()
     # transform interface states back into conserved variables
     U_xl = comp.prim_to_cons(V_l, gamma, ivars, myg)
     U_xr = comp.prim_to_cons(V_r, gamma, ivars, myg)
@@ -470,30 +470,50 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
 
     return F_x, F_y
 
+# def pres(densener):
+#   # T_in = PREOS.getTfromEandRho(eint*0.001,vol)
+#   # p = PREOS.getPfromTandRho(T, dens)
+
+#   pressure = PropsSI('P', 'UMASS', densener[1],'DMASS', densener[0], fluid)
+#   pressure = np.array(pressure, order = 'F')
+#   return pressure
+#   #return p
+
+# def real_gamma(denspres):
+#   # T_in = PREOS.getTfromPandRho(denspres[1], denspres[0])
+#   # sos = PREOS.getSos([denspres[1], denspres[0]])
+
+#   sos = PropsSI('A', 'P', denspres[1], 'DMASS', denspres[0], fluid)
+#   rg = np.array((sos**2)*denspres[0]/denspres[1], order = 'F')
+#   return rg
+
+# def speed(prho):
+#   # T_in = PREOS.getTfromPandRho(prho[1], prho[0])
+#   # sos = PREOS.getSos([prho[0], prho[1]])
+
+#   sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], "Oxygen")
+#   sos = np.array(sos, order = 'F')
+#   return sos
+
 def pres(densener):
   MW = 32.0
-  print densener[0]
   vol = tools.getVfromRho(densener[0], MW)
+  keyboard()
   T_in = PREOS.NewtonIterate_TemperaturefromEv(densener[1],vol, T_in,eps=1E-6,omega=1.0)
   p = PREOS.getPressurefromVolumeTemperature(vol,T_in)
-
   # pressure = PropsSI('P', 'UMASS', densener[1],'DMASS', densener[0], fluid)
   # pressure = np.array(pressure, order = 'F')
   # return pressure
   return p
-
 def real_gamma(denspres):
   T_in = PREOS.NewtonIterate_TemperaturefromPrho(denspres[0], denspres[1], T_in = 300.0, eps= 1E-10, omega = 1.0)
   sos = PREOS.getSpeedOfSound(denspres[1], T_in)
-
   #sos = PropsSI('A', 'P', denspres[1], 'DMASS', denspres[0], fluid)
   rg = np.array((sos**2)*denspres[0]/denspres[1], order = 'F')
   return rg
-
 def speed(prho):
   T_in = PREOS.NewtonIterate_TemperaturefromPrho(prho[1], prho[0], T_in = 300.0, eps= 1E-10, omega = 1.0)
   sos = PREOS.getSpeedOfSound(prho[0], T_in)
-
   #sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], "Oxygen")
   #sos = np.array(sos, order = 'F')
   return sos

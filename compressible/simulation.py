@@ -60,12 +60,13 @@ def cons_to_prim(U, gamma, ivars, myg):
     q[:,:,ivars.iu] = U[:,:,ivars.ixmom]/U[:,:,ivars.idens]
     q[:,:,ivars.iv] = U[:,:,ivars.iymom]/U[:,:,ivars.idens]
 
+
+    ## here iener will be in j/kg
     e = (U[:,:,ivars.iener] - 
          0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 + 
                                 q[:,:,ivars.iv]**2))/q[:,:,ivars.irho]
 
     q[:,:,ivars.ip] = eos.pres(q[:,:,ivars.irho], e)
-
     if ivars.naux > 0:
         q[:,:,ivars.ix:ivars.ix+ivars.naux] = \
             U[:,:,ivars.irhox:ivars+naux]/q[:,:,ivars.irho]
@@ -227,7 +228,6 @@ class Simulation(NullSimulation):
         """
 
         plt.clf()
-
         plt.rc("font", size=10)
 
         # we do this even though ivars is in self, so this works when
