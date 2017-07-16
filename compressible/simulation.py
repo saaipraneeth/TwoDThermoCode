@@ -59,13 +59,15 @@ def cons_to_prim(U, gamma, ivars, myg):
     q[:,:,ivars.irho] = U[:,:,ivars.idens]
     q[:,:,ivars.iu] = U[:,:,ivars.ixmom]/U[:,:,ivars.idens]
     q[:,:,ivars.iv] = U[:,:,ivars.iymom]/U[:,:,ivars.idens]
+    q[:,:,ivars.iv] = 0.0*q[:,:,ivars.iv]
 
+    ## here iener will be in j/kg and it is rho*E
+    keyboard()
+    e = (U[:,:,ivars.iener] - 0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 +  q[:,:,ivars.iv]**2))/q[:,:,ivars.irho] #why do we need rho here ?
 
-    ## here iener will be in j/kg
-    e = (U[:,:,ivars.iener] - 
-         0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 + 
-                                q[:,:,ivars.iv]**2))/q[:,:,ivars.irho]
+    q[:,:,ivars.iener] = e
 
+    keyboard()
     q[:,:,ivars.ip] = eos.pres(q[:,:,ivars.irho], e)
     if ivars.naux > 0:
         q[:,:,ivars.ix:ivars.ix+ivars.naux] = \
@@ -244,7 +246,8 @@ class Simulation(NullSimulation):
         u = q[:,:,ivars.iu]
         v = q[:,:,ivars.iv]
         p = q[:,:,ivars.ip]
-        e = eos.rhoe(rho, p)/rho
+        e = q[:,:,ivars.iener]
+        #e = eos.rhoe(rho, p)/rho
 
         magvel = np.sqrt(u**2 + v**2)
 

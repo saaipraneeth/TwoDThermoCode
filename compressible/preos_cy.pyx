@@ -11,11 +11,11 @@ def getThermo(T):
 
 	cdef float MW, Tc, pc, rhoc, omega, c, R, b
 
-	MW = 28.0134e-3
-	Tc = 126.19
-	pc  = 3.3958e+6
+	MW   = 28.0134e-3
+	Tc   = 126.19
+	pc   = 3.3958e+6
 	rhoc = 313.3
-	omega  = 0.03720
+	omega= 0.03720
 
 	c = 0.37464 + 1.54226*omega - 0.26992*omega**2
 
@@ -122,7 +122,7 @@ def getTfromPandRho(p,rho):
 	CRIT = 1.0e-2
 
 	v = 1./rho
-	T = 300*np.ones(np.size(rho))
+	T = 300.0*np.ones(np.size(rho))
 	p_n = getPfromTandRho(T,rho)
 	diff = p_n - p
 

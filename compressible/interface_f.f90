@@ -334,6 +334,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
 
         ! define the Lagrangian sound speed
         temp = [rho_l, p_l]
+        print *, temp
         temp1 = 0.0d0 + real_gamma(temp)
         gamma_l = temp1
 

@@ -119,7 +119,7 @@ class peng_robinson_fluid():
 		CRIT = 1.0e-2
 
 		v = 1./rho
-		T = 300*np.ones(np.size(rho))
+		T = 300.0*np.ones(np.size(rho))
 		p_n = self.getPfromTandRho(T,rho)
 		diff = p_n - p
 
@@ -135,10 +135,10 @@ class peng_robinson_fluid():
 		#function [ T ] = getTfromEandRho( eint,rho )
 		# getTfromEandRho Compute temperature given pressure and density.
 
-		CRIT = 1.0e-4
+		CRIT = 1.0e-2
 
 		v = 1./rho
-		T = 300*np.ones(np.size(rho))
+		T = 300.0*np.ones(np.size(rho))
 		e_n = self.getEnergyfromTandRho(T,rho)
 		diff = e_n - e
 

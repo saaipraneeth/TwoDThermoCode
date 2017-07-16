@@ -62,7 +62,7 @@ def init_data(my_data, rp):
         dens[idxl] = dens_left
         xmom[idxl] = dens_left*u_left
         ymom[idxl] = 0.0
-        ener[idxl] = eos.rhoe(dens[idxl], p_left*np.ones(np.shape(dens[idxl])))/ dens[idxl]
+        ener[idxl] = eos.rhoe(dens[idxl], p_left*np.ones(np.shape(dens[idxl]))) #/ dens[idxl]
         #ener[idxl] = p_left/(gamma - 1.0) + 0.5*xmom[idxl]*u_left
 
         # right
@@ -71,7 +71,7 @@ def init_data(my_data, rp):
         dens[idxr] = dens_right
         xmom[idxr] = dens_right*u_right
         ymom[idxr] = 0.0
-        ener[idxr] = eos.rhoe(dens[idxr], p_right*np.ones(np.shape(dens[idxr])))/ dens[idxr]
+        ener[idxr] = eos.rhoe(dens[idxr], p_right*np.ones(np.shape(dens[idxr]))) #/ dens[idxr]
         #ener[idxr] = p_right/(gamma - 1.0) + 0.5*xmom[idxr]*u_right
 
     else:
@@ -82,7 +82,7 @@ def init_data(my_data, rp):
         dens[idxb] = dens_left
         xmom[idxb] = 0.0
         ymom[idxb] = dens_left*u_left
-        ener[idxb] = eos.rhoe(dens[idxb], p_left*np.ones(np.shape(dens[idxb])))/ dens[idxb]
+        ener[idxb] = eos.rhoe(dens[idxb], p_left*np.ones(np.shape(dens[idxb]))) #/ dens[idxb]
         #ener[idxb] = p_left/(gamma - 1.0) + 0.5*ymom[idxb]*u_left
                 
         # top
@@ -91,7 +91,7 @@ def init_data(my_data, rp):
         dens[idxt] = dens_right
         xmom[idxt] = 0.0
         ymom[idxt] = dens_right*u_right
-        ener[idxt] = eos.rhoe(dens[idxt], p_right*np.ones(np.shape(dens[idxt])))/ dens[idxt]
+        ener[idxt] = eos.rhoe(dens[idxt], p_right*np.ones(np.shape(dens[idxt]))) #/ dens[idxt]
         #ener[idxt] = p_right/(gamma - 1.0) + 0.5*ymom[idxt]*u_right
         
     
