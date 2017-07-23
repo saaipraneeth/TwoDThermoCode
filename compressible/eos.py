@@ -145,7 +145,6 @@ if eqofst == 'PREOS':
                 #     temp[temp < 0.1] = np.nan
                 #     dens[i] = temp
                 #     continue
-                print pres[i], dens[i]
                 T[i] = PREOS.getTfromPandRho(pres[i], dens[i])
                 #T[i] = PropsSI('T', 'P', pres[i], 'DMASS', dens[i], 'Nitrogen')
                 eint[i] = PREOS.getEnergyfromTandRho(T[i], dens[i])

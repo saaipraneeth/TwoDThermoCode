@@ -303,7 +303,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
         endif
 
         rhoe_l = U_l(i,j,iener) - 0.5*rho_l*(un_l**2 + ut_l**2)
-        eint_l = rhoe_l/rho_l
+        eint_l = rhoe_l/rho_l !this will be negative
 
 
         temp = [rho_l, eint_l]
@@ -323,7 +323,7 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
         endif
 
         rhoe_r = U_r(i,j,iener) - 0.5*rho_r*(un_r**2 + ut_r**2)
-        eint = rhoe_r/rho_r
+        eint_r = rhoe_r/rho_r
 
         temp = [rho_r, eint_r]
         temp1 = 0.0d0 + pres(temp)
@@ -334,7 +334,6 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
 
         ! define the Lagrangian sound speed
         temp = [rho_l, p_l]
-        print *, temp
         temp1 = 0.0d0 + real_gamma(temp)
         gamma_l = temp1
 

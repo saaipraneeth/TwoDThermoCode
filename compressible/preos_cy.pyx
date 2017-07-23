@@ -9,13 +9,15 @@ def getThermo(T):
 
 	# N2
 
-	cdef float MW, Tc, pc, rhoc, omega, c, R, b
+	cdef float MW, pc, rhoc, omega, c, R, b
 
 	MW   = 28.0134e-3
-	Tc   = 126.19
+	#Tc   = 126.19
 	pc   = 3.3958e+6
 	rhoc = 313.3
 	omega= 0.03720
+
+	Tc = np.asarray(126.19)
 
 	c = 0.37464 + 1.54226*omega - 0.26992*omega**2
 
@@ -24,11 +26,11 @@ def getThermo(T):
 	#alpha = (1.0 + kappa*(1.0-(T/Tc)**0.5))**2
 	#a = (0.457236 * alpha * (R*Tc)**2/pc)
 
-	a = 0.457236*(R*Tc)**2 / pc*(1+c*(1-np.sqrt(T/Tc)))**2
+	a = 0.457236*pow(R*Tc, 2) / pc*(1+c*(1-np.sqrt(T/Tc)))**2
 	b = 0.077796*R*Tc/pc
 	G = c*np.sqrt(T/Tc) / (1+c*(1-np.sqrt(T/Tc)))
-	dadT = -1./T*a*G
-	d2adT2 = 0.457236*R**2. / T/2*c*(1+c)*Tc/pc*np.sqrt(Tc/T)
+	dadT = pow(T*a*G, -1)
+	d2adT2 = np.asarray(0.457236*pow(R, 2)) / T/2*c*(1+c)*Tc/pc*np.sqrt(Tc/T)
 
 	return a,b,R,dadT,d2adT2
 
@@ -38,10 +40,10 @@ def getEnergyfromTandRho(T, rho):
 	# and density. NASA polynomial for N2 is used.
 
 	# nasa polynomial for N2
-	coef = [3.531005280E+00,-1.236609870E-04,-5.029994370E-07,2.435306120E-09, -1.408812350E-12,-1.046976280E+03,2.967474680E+00]
+	coef = np.asarray([3.531005280E+00,-1.236609870E-04,-5.029994370E-07,2.435306120E-09, -1.408812350E-12,-1.046976280E+03,2.967474680E+00])
 	 
 	a,b,R,dadT,d2adT2 = getThermo(T)
-	h_ideal = T*R*(coef[0] + coef[1]*T/2.0 + coef[2]*T**2/3.0 + coef[3]*T**3/4.0 + coef[4] * T**4/5.0+ coef[5] / T)
+	h_ideal = T*np.asarray(R)*(coef[0] + coef[1]*T/2.0 + coef[2]*pow(T,2)/3.0 + coef[3]*pow(T,3)/4.0 + coef[4] * pow(T,4)/5.0+ coef[5] / T)
 
 	v = 1/rho
 	K1 = 1.0/(2.0*np.sqrt(2.0)*b) * np.log((v+(1.0-np.sqrt(2))*b)/(v+(1.0+np.sqrt(2))*b))
@@ -134,24 +136,26 @@ def getTfromPandRho(p,rho):
 		diff = p_n - p
 	return T
 
-def getTfromEandRho(e,rho):
+def getTfromEandRho(double[:] e, rho):
 	#function [ T ] = getTfromEandRho( eint,rho )
 	# getTfromEandRho Compute temperature given pressure and density.
 
-	cdef float CRIT
-	CRIT = 1.0e-2
-
-	v = 1./rho
+	cdef float CRIT = 0.001, R, b
+	#CRIT = 1.0e-2
+	cdef double[:] v, T, e_n, diff, a, dadT,d2adT2, dpdT
+	v = pow(rho, -1)
 	T = 300.0*np.ones(np.size(rho))
 	e_n = getEnergyfromTandRho(T,rho)
-	diff = e_n - e
+	diff = np.asarray(e_n) - np.asarray(e)
+
+
 
 	while (max(abs(diff)) > CRIT):
 		a,b,R,dadT,d2adT2 = getThermo(T)
-		dpdT = R/(v-b) - 1./(v**2+2*v*b-b**2)*dadT
-		T = T - (diff/dpdT)
+		dpdT = {R}/(v-{b}) - {1.0}/(pow(v,2)+{2.0}*v*{b}-{pow(b,2)})*dadT
+		T = np.asarray(T) - (diff/np.asarray(dpdT))
 		e_n = getEnergyfromTandRho(T,rho)
-		diff = e_n - e
+		diff = np.asarray(e_n) - np.asarray(e)
 	return T
 
 

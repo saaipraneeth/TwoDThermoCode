@@ -41,7 +41,7 @@ class peng_robinson_fluid():
 		a,b,R,dadT,d2adT2 = self.getThermo(T)
 		h_ideal = T*R*(coef[0] + coef[1]*T/2.0 + coef[2]*T**2/3.0 + coef[3]*T**3/4.0 + coef[4] * T**4/5.0+ coef[5] / T)
 
-		v = 1/rho
+		v = 1.0/rho
 		K1 = 1.0/(2.0*np.sqrt(2.0)*b) * np.log((v+(1.0-np.sqrt(2))*b)/(v+(1.0+np.sqrt(2))*b))
 		dep = (a - T*dadT)*K1
 
@@ -142,12 +142,15 @@ class peng_robinson_fluid():
 		e_n = self.getEnergyfromTandRho(T,rho)
 		diff = e_n - e
 
+		i = 0
 		while (max(abs(diff)) > CRIT):
-		    a,b,R,dadT,d2adT2 = self.getThermo(T)
-		    dpdT = R/(v-b) - 1./(v**2+2*v*b-b**2)*dadT
-		    T = T - (diff/dpdT)
-		    e_n = self.getEnergyfromTandRho(T,rho)
-		    diff = e_n - e
+			i = i + 1
+			a,b,R,dadT,d2adT2 = self.getThermo(T)
+			dpdT = R/(v-b) - 1./(v**2+2*v*b-b**2)*dadT
+			T = T - (diff/dpdT)
+			e_n = self.getEnergyfromTandRho(T,rho)
+			diff = e_n - e
+		print i
 		return T
 
 

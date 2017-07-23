@@ -420,7 +420,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
 
     # up until now, F_x and F_y stored the transverse fluxes, now we
     # overwrite with the fluxes normal to the interfaces
-
+    keyboard()
     tm_riem.begin()
 
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
@@ -437,7 +437,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)
     
     tm_riem.end()
-
+    keyboard()
     #=========================================================================
     # apply artificial viscosity
     #=========================================================================
@@ -464,7 +464,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
             avisco_y.v(buf=b)*(var.jp(-1, buf=b) - var.v(buf=b))
 
     tm_flux.end()
-
+    keyboard()
     return F_x, F_y
 
 eqnst = 'coolprop'
@@ -489,7 +489,7 @@ if eqnst == 'PREOS':
     return rg
 
   def speed(prho):
-    print prho
+    #print prho
     #T_in = PREOS.getTfromPandRho(prho[1], prho[0])
     sos = PREOS.getSos([prho[0], prho[1]])
 
@@ -506,14 +506,14 @@ elif eqnst == 'coolprop':
     # T_in = PREOS.NewtonIterate_TemperaturefromEv(densener[1],vol, T_in,eps=1E-6,omega=1.0)
     # p = PREOS.getPressurefromVolumeTemperature(vol,T_in)
     pressure = PropsSI('P', 'UMASS', densener[1],'DMASS', densener[0], fluid)
-    pressure = np.array(pressure, order = 'F')
-    print "The thermodynamic state is, ", densener, 
-    print "Pressure: ", pressure
+    #pressure = np.array(pressure, order = 'F')
+    #print "The thermodynamic state is, ", densener, 
+    #print "Pressure: ", pressure
     return pressure
-    #return p
 
   def real_gamma(denspres):
-    print denspres
+    #print "[ density, pressure ]"
+    #print denspres
     #T_in = PREOS.NewtonIterate_TemperaturefromPrho(denspres[0], denspres[1], T_in = 300.0, eps= 1E-10, omega = 1.0)
     #sos = PREOS.getSpeedOfSound(denspres[1], T_in)
     sos = PropsSI('A', 'P', denspres[1], 'DMASS', denspres[0], fluid)
@@ -523,6 +523,6 @@ elif eqnst == 'coolprop':
   def speed(prho):
     #T_in = PREOS.NewtonIterate_TemperaturefromPrho(prho[1], prho[0], T_in = 300.0, eps= 1E-10, omega = 1.0)
     #sos = PREOS.getSpeedOfSound(prho[0], T_in)
-    sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], "Oxygen")
+    sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], "Nitrogen")
     sos = np.array(sos, order = 'F')
     return sos

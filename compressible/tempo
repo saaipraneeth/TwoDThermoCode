@@ -1,0 +1,53 @@
+def getTfromEandRho(double[:] e, rho):
+	#function [ T ] = getTfromEandRho( eint,rho )
+	# getTfromEandRho Compute temperature given pressure and density.
+
+	cdef float CRIT = 0.001, R, b
+	#CRIT = 1.0e-2
+	cdef double[:] v, T, e_n, diff, a, dadT,d2adT2, dpdT
+	v = {1.0}/rho
+	T = 300.0*np.ones(np.size(rho))
+	e_n = getEnergyfromTandRho(T,rho)
+	diff = np.asarray(e_n) - np.asarray(e)
+
+
+
+	while (max(abs(diff)) > CRIT):
+		a,b,R,dadT,d2adT2 = getThermo(T)
+		dpdT = {R}/(v-{b}) - {1.0}/(pow(v,2)+{2.0}*v*{b}-{pow(b,2)})*dadT
+		T = np.asarray(T) - (diff/np.asarray(dpdT))
+		e_n = getEnergyfromTandRho(T,rho)
+		diff = np.asarray(e_n) - np.asarray(e)
+	return T
+
+
+def getThermo( double[:] T):
+	#function [ a,b,R,dadT,d2adT2 ] = getThermo( T )
+	#% getThermo Compute necessary thermodyamic parameters for the cubic
+	#% equation of state (N2 property is assumed).
+
+	# N2
+
+	cdef float MW, Tc, pc, rhoc, omega, c, R, b
+	cdef double[:] a, G, dadT, d2adT2
+
+	MW   = 28.0134e-3
+	Tc   = 126.19
+	pc   = 3.3958e+6
+	rhoc = 313.3
+	omega= 0.03720
+
+	c = 0.37464 + 1.54226*omega - 0.26992*omega**2
+
+	R = 8.314/MW
+	#kappa = 0.37464 + 1.54226*omega-0.26992*omega**2
+	#alpha = (1.0 + kappa*(1.0-(T/Tc)**0.5))**2
+	#a = (0.457236 * alpha * (R*Tc)**2/pc)
+
+	a = 0.457236*(R*{Tc})**2 / {pc}* pow( 1+c*(1-np.sqrt(T/{Tc})) ,2)   #(1+c*(1-np.sqrt(T/{Tc})))**2
+	b = 0.077796*R*Tc/pc
+	G = c*np.sqrt(T/{Tc}) / (1+c*(1-np.sqrt(T/{Tc})))
+	dadT = {-1.0}/T*a*G
+	d2adT2 = {0.457236*R**2.0} / T/2*c*(1+c)*Tc/pc*np.sqrt({Tc}/T)
+
+	return a,b,R,dadT,d2adT2
