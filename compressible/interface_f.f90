@@ -552,33 +552,48 @@ subroutine riemann_cgf(idir, qx, qy, ng, &
 
 end subroutine riemann_cgf
 
-
 subroutine riemann_HLLC(idir, qx, qy, ng, &
-                        nvar, idens, ixmom, iymom, iener, &
-                        lower_solid, upper_solid, &
-                        gamma, U_l, U_r, F)
+                       nvar, idens, ixmom, iymom, iener, &
+                       lower_solid, upper_solid, &
+                       real_gamma, pres, U_l, U_r, F)
 
-
-  implicit none
+  !implicit none
+  EXTERNAL real_gamma
+  EXTERNAL pres
 
   integer, intent(in) :: idir
   integer, intent(in) :: qx, qy, ng
   integer, intent(in) :: nvar, idens, ixmom, iymom, iener
   integer, intent(in) :: lower_solid, upper_solid
-  double precision, intent(in) :: gamma
 
   ! 0-based indexing to match python 
   double precision, intent(inout) :: U_l(0:qx-1,0:qy-1,0:nvar-1)
   double precision, intent(inout) :: U_r(0:qx-1,0:qy-1,0:nvar-1)
   double precision, intent(  out) :: F(0:qx-1,0:qy-1,0:nvar-1)
-
+!F2PY (CALLBACK) real_gamma
+!F2PY (CALLBACK) pres
 !f2py depend(qx, qy, nvar) :: U_l, U_r     
 !f2py intent(in) :: U_l, U_r
 !f2py intent(out) :: F
 
-  ! this is the HLLC Riemann solver.  The implementation follows
-  ! directly out of Toro's book.  Note: this does not handle the
-  ! transonic rarefaction.
+  ! Solve riemann shock tube problem for a general equation of
+  ! state using HLLC.
+  !
+  ! The Riemann problem for the Euler's equation produces 4 regions,
+  ! separated by the three characteristics (u - cs, u, u + cs):
+  !
+  !
+  !        u - cs    t    u      u + cs
+  !          \       ^   .       /
+  !           \  *L  |   . *R   /
+  !            \     |  .     /
+  !             \    |  .    /
+  !         L    \   | .   /    R
+  !               \  | .  /
+  !                \ |. /
+  !                 \|./
+  !        ----------+----------------> x
+
 
   integer :: ilo, ihi, jlo, jhi
   integer :: nx, ny
@@ -587,21 +602,20 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
   double precision, parameter :: smallc = 1.e-10
   double precision, parameter :: smallrho = 1.e-10
   double precision, parameter :: smallp = 1.e-10
+  double precision, dimension(0:1) :: temp
+  real :: temp1
 
   double precision :: rho_l, un_l, ut_l, rhoe_l, p_l
   double precision :: rho_r, un_r, ut_r, rhoe_r, p_r
 
-  double precision :: rhostar_l, rhostar_r, rho_avg
-  double precision :: ustar, pstar
-  double precision :: Q, p_min, p_max, p_lr, p_guess
-  double precision :: factor, factor2
-  double precision :: g_l, g_r, A_l, B_l, A_r, B_r, z
-  double precision :: S_l, S_r, S_c
-  double precision :: c_l, c_r, c_avg
-  
-  double precision :: U_state(0:nvar-1)
-  double precision :: HLLCfactor
+  double precision :: rhostar_l, rhostar_r, rhoestar_l, rhoestar_r
+  double precision :: ustar, pstar, cstar_l, cstar_r
+  double precision :: lambda_l, lambdastar_l, lambda_r, lambdastar_r
+  double precision :: W_l, W_r, c_l, c_r, sigma
+  double precision :: alpha
+  double precision :: eint_l, eint_r
 
+  double precision :: rho_state, un_state, ut_state, p_state, rhoe_state
   
 
   nx = qx - 2*ng; ny = qy - 2*ng
@@ -623,8 +637,13 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
         endif
 
         rhoe_l = U_l(i,j,iener) - 0.5*rho_l*(un_l**2 + ut_l**2)
+        eint_l = rhoe_l/rho_l !this will be negative
 
-        p_l   = rhoe_l*(gamma - 1.0d0)
+
+        temp = [rho_l, eint_l]
+        temp1 = 0.0d0 + pres(temp)
+        p_l = temp1
+        !p_l   = rhoe_l*(gamma - 1.0d0)
         p_l = max(p_l, smallp)
 
         rho_r  = U_r(i,j,idens)
@@ -638,126 +657,84 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
         endif
 
         rhoe_r = U_r(i,j,iener) - 0.5*rho_r*(un_r**2 + ut_r**2)
+        eint_r = rhoe_r/rho_r
 
-        p_r   = rhoe_r*(gamma - 1.0d0)
+        temp = [rho_r, eint_r]
+        temp1 = 0.0d0 + pres(temp)
+        p_r = temp1
+        !p_r   = rhoe_r*(gamma - 1.0d0)
         p_r = max(p_r, smallp)
             
-        
-        ! compute the sound speeds
-        c_l = max(smallc, sqrt(gamma*p_l/rho_l))
-        c_r = max(smallc, sqrt(gamma*p_r/rho_r))
 
-        ! Estimate the star quantities -- use one of three methods to
-        ! do this -- the primitive variable Riemann solver, the two
-        ! shock approximation, or the two rarefaction approximation.
-        ! Pick the method based on the pressure states at the
-        ! interface.
-        
-        p_max = max(p_l, p_r)
-        p_min = min(p_l, p_r)
+        ! define the Lagrangian sound speed
+        temp = [rho_l, p_l]
+        temp1 = 0.0d0 + real_gamma(temp)
+        gamma_l = temp1
 
-        Q = p_max/p_min
+        temp = [rho_r, p_r]
+        temp1 = 0.0d0 + real_gamma(temp)
+        gamma_r = temp1
 
-        rho_avg = 0.5*(rho_l + rho_r)
-        c_avg = 0.5*(c_l + c_r)
+        W_l = max(smallrho*smallc, sqrt(gamma_l*p_l*rho_l))
+        W_r = max(smallrho*smallc, sqrt(gamma_r*p_r*rho_r))
 
-        ! primitive variable Riemann solver (Toro, 9.3)
-        factor = rho_avg*c_avg
-        factor2 = rho_avg/c_avg
+        ! and the regular sound speeds
+        c_l = max(smallc, sqrt(gamma_l*p_l/rho_l))
+        c_r = max(smallc, sqrt(gamma_r*p_r/rho_r))
 
-        pstar = 0.5*(p_l + p_r) + 0.5*(un_l - un_r)*factor
-        ustar = 0.5*(un_l + un_r) + 0.5*(p_l - p_r)/factor
+        ! define the star states
+        pstar = (W_l*p_r + W_r*p_l + W_l*W_r*(un_l - un_r))/(W_l + W_r)
+        pstar = max(pstar, smallp)
+        ustar = (W_l*un_l + W_r*un_r + (p_l - p_r))/(W_l + W_r)
 
-        rhostar_l = rho_l + (un_l - ustar)*factor2
-        rhostar_r = rho_r + (ustar - un_r)*factor2
+        ! now compute the remaining state to the left and right
+        ! of the contact (in the star region)
+        rhostar_l = rho_l + (pstar - p_l)/c_l**2
+        rhostar_r = rho_r + (pstar - p_r)/c_r**2
 
-        if (Q > 2 .and. (pstar < p_min .or. pstar > p_max)) then
-
-           ! use a more accurate Riemann solver for the estimate here
-           
-           if (pstar < p_min) then
-              
-              ! 2-rarefaction Riemann solver
-              z = (gamma - 1.0d0)/(2.0d0*gamma)
-              p_lr = (p_l/p_r)**z
-
-              ustar = (p_lr*un_l/c_l + un_r/c_r + &
-                        2.0d0*(p_lr - 1.0d0)/(gamma - 1.0d0)) / &
-                      (p_lr/c_l + 1.0d0/c_r)
-
-              pstar = 0.5d0*(p_l*(1.0d0 + (gamma - 1.0d0)*(un_l - ustar)/ &
-                                   (2.0d0*c_l) )**(1.0d0/z) + &
-                             p_r*(1.0d0 + (gamma - 1.0d0)*(ustar - un_r)/ &
-                                   (2.0d0*c_r) )**(1.0d0/z) )
-
-              rhostar_l = rho_l*(pstar/p_l)**(1.0d0/gamma)
-              rhostar_r = rho_r*(pstar/p_r)**(1.0d0/gamma)
-
-           else
-
-              ! 2-shock Riemann solver
-              A_r = 2.0/((gamma + 1.0d0)*rho_r)
-              B_r = p_r*(gamma - 1.0d0)/(gamma + 1.0d0)
-
-              A_l = 2.0/((gamma + 1.0d0)*rho_l)
-              B_l = p_l*(gamma - 1.0d0)/(gamma + 1.0d0)
-
-              ! guess of the pressure
-              p_guess = max(0.0d0, pstar)
-
-              g_l = sqrt(A_l / (p_guess + B_l))
-              g_r = sqrt(A_r / (p_guess + B_r))
-
-              pstar = (g_l*p_l + g_r*p_r - (un_r - un_l))/(g_l + g_r)
-
-              ustar = 0.5*(un_l + un_r) + &
-                   0.5*( (pstar - p_r)*g_r - (pstar - p_l)*g_l)
-
-              rhostar_l = rho_l*(pstar/p_l + (gamma-1.0d0)/(gamma+1.0d0))/ &
-                   ( (gamma-1.0d0)/(gamma+1.0d0)*(pstar/p_l) + 1.0d0)
-
-              rhostar_r = rho_r*(pstar/p_r + (gamma-1.0d0)/(gamma+1.0d0))/ &
-                   ( (gamma-1.0d0)/(gamma+1.0d0)*(pstar/p_r) + 1.0d0)
-
-           endif
-        endif
-
+        ! step II: wave speed estimate
         ! estimate the nonlinear wave speeds
 
-        if (pstar <= p_l) then
-           ! rarefaction
-           S_l = un_l - c_l
-        else
-           ! shock
-           S_l = un_l - c_l*sqrt(1.0d0 + ((gamma+1.0d0)/(2.0d0*gamma))* &
-                                   (pstar/p_l - 1.0d0))
-        endif
+        ! use the simplest estimates of the wave speeds
+        S_l = min(un_l - sqrt(gamma_l*p_l/rho_l), un_r - sqrt(gamma_r(i,j)*p_r/rho_r))
+        S_r = max(un_l + sqrt(gamma_l*p_l/rho_l), un_r + sqrt(gamma_r(i,j)*p_r/rho_r))
 
-        if (pstar <= p_r) then
-           ! rarefaction
-           S_r = un_r + c_r
-        else
-           ! shock
-           S_r = un_r + c_r*sqrt(1.0d0 + ((gamma+1.0d0)/(2.0d0/gamma))* &
-                                  (pstar/p_r - 1.0d0))
-        endif
+        ! if (pstar <= p_l) then
+        !    ! rarefaction
+        !    S_l = un_l - c_l
+        ! else
+        !    ! shock
+        !    S_l = un_l - c_l*sqrt(1.0d0 + ((gamma+1.0d0)/(2.0d0*gamma))* &
+        !                            (pstar/p_l - 1.0d0))
+        ! endif
+
+        ! if (pstar <= p_r) then
+        !    ! rarefaction
+        !    S_r = un_r + c_r
+        ! else
+        !    ! shock
+        !    S_r = un_r + c_r*sqrt(1.0d0 + ((gamma+1.0d0)/(2.0d0/gamma))* &
+        !                           (pstar/p_r - 1.0d0))
+        ! endif
 
         !  We could just take S_c = u_star as the estimate for the
         !  contact speed, but we can actually do this more accurately
         !  by using the Rankine-Hugonoit jump conditions across each
         !  of the waves (see Toro 10.58, Batten et al. SIAM
         !  J. Sci. and Stat. Comp., 18:1553 (1997)
+
+        ! Eqn 10.70 in Toro
         S_c = (p_r - p_l + rho_l*un_l*(S_l - un_l) - rho_r*un_r*(S_r - un_r))/ &
              (rho_l*(S_l - un_l) - rho_r*(S_r - un_r))
 
-        
+        ! step III: Compute the HLLC flux
         ! figure out which region we are in and compute the state and 
         ! the interface fluxes using the HLLC Riemann solver
         if (S_r <= 0.0d0) then
            ! R region
            U_state(:) = U_r(i,j,:)
 
-           call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+           call consFlux(idir, pres, idens, ixmom, iymom, iener, nvar, &
                          U_state, F(i,j,:))
 
         else if (S_r > 0.0d0 .and. S_c <= 0) then
@@ -778,7 +755,7 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
                 (S_c - un_r)*(S_c + p_r/(rho_r*(S_r - un_r))))
 
            ! find the flux on the right interface
-           call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+           call consFlux(idir, pres, idens, ixmom, iymom, iener, nvar, &
                          U_r(i,j,:), F(i,j,:))
 
            ! correct the flux
@@ -802,7 +779,7 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
                 (S_c - un_l)*(S_c + p_l/(rho_l*(S_l - un_l))))
 
            ! find the flux on the left interface
-           call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+           call consFlux(idir, pres, idens, ixmom, iymom, iener, nvar, &
                          U_l(i,j,:), F(i,j,:))
 
            ! correct the flux
@@ -812,7 +789,7 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
            ! L region
            U_state(:) = U_l(i,j,:)
 
-           call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+           call consFlux(idir, pres, idens, ixmom, iymom, iener, nvar, &
                          U_state, F(i,j,:))
 
         endif
@@ -822,11 +799,288 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
      enddo
   enddo
 end subroutine riemann_HLLC
-   
-subroutine consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, U_state, F)        
+
+
+! subroutine riemann_HLLC(idir, qx, qy, ng, &
+!                         nvar, idens, ixmom, iymom, iener, &
+!                         lower_solid, upper_solid, &
+!                         real_gamma, pres, U_l, U_r, F)
+
+
+!   implicit none
+
+!   integer, intent(in) :: idir
+!   integer, intent(in) :: qx, qy, ng
+!   integer, intent(in) :: nvar, idens, ixmom, iymom, iener
+!   integer, intent(in) :: lower_solid, upper_solid
+!   double precision, intent(in) :: gamma
+
+!   ! 0-based indexing to match python 
+!   double precision, intent(inout) :: U_l(0:qx-1,0:qy-1,0:nvar-1)
+!   double precision, intent(inout) :: U_r(0:qx-1,0:qy-1,0:nvar-1)
+!   double precision, intent(  out) :: F(0:qx-1,0:qy-1,0:nvar-1)
+
+! !f2py depend(qx, qy, nvar) :: U_l, U_r     
+! !f2py intent(in) :: U_l, U_r
+! !f2py intent(out) :: F
+
+!   ! this is the HLLC Riemann solver.  The implementation follows
+!   ! directly out of Toro's book.  Note: this does not handle the
+!   ! transonic rarefaction.
+
+!   integer :: ilo, ihi, jlo, jhi
+!   integer :: nx, ny
+!   integer :: i, j
+
+!   double precision, parameter :: smallc = 1.e-10
+!   double precision, parameter :: smallrho = 1.e-10
+!   double precision, parameter :: smallp = 1.e-10
+
+!   double precision :: rho_l, un_l, ut_l, rhoe_l, p_l
+!   double precision :: rho_r, un_r, ut_r, rhoe_r, p_r
+
+!   double precision :: rhostar_l, rhostar_r, rho_avg
+!   double precision :: ustar, pstar
+!   double precision :: Q, p_min, p_max, p_lr, p_guess
+!   double precision :: factor, factor2
+!   double precision :: g_l, g_r, A_l, B_l, A_r, B_r, z
+!   double precision :: S_l, S_r, S_c
+!   double precision :: c_l, c_r, c_avg
   
+!   double precision :: U_state(0:nvar-1)
+!   double precision :: HLLCfactor
+
+  
+
+!   nx = qx - 2*ng; ny = qy - 2*ng
+!   ilo = ng; ihi = ng+nx-1; jlo = ng; jhi = ng+ny-1
+
+!   do j = jlo-1, jhi+1
+!      do i = ilo-1, ihi+1
+
+!         ! primitive variable states
+!         rho_l  = U_l(i,j,idens)
+
+!         ! un = normal velocity; ut = transverse velocity        
+!         if (idir == 1) then
+!            un_l    = U_l(i,j,ixmom)/rho_l
+!            ut_l    = U_l(i,j,iymom)/rho_l
+!         else
+!            un_l    = U_l(i,j,iymom)/rho_l
+!            ut_l    = U_l(i,j,ixmom)/rho_l
+!         endif
+
+!         rhoe_l = U_l(i,j,iener) - 0.5*rho_l*(un_l**2 + ut_l**2)
+
+!         p_l   = rhoe_l*(gamma - 1.0d0)
+!         p_l = max(p_l, smallp)
+
+!         rho_r  = U_r(i,j,idens)
+
+!         if (idir == 1) then
+!            un_r    = U_r(i,j,ixmom)/rho_r
+!            ut_r    = U_r(i,j,iymom)/rho_r
+!         else
+!            un_r    = U_r(i,j,iymom)/rho_r
+!            ut_r    = U_r(i,j,ixmom)/rho_r
+!         endif
+
+!         rhoe_r = U_r(i,j,iener) - 0.5*rho_r*(un_r**2 + ut_r**2)
+
+!         p_r   = rhoe_r*(gamma - 1.0d0)
+!         p_r = max(p_r, smallp)
+            
+        
+!         ! compute the sound speeds
+!         c_l = max(smallc, sqrt(gamma*p_l/rho_l))
+!         c_r = max(smallc, sqrt(gamma*p_r/rho_r))
+
+!         ! Step I: Pressure estimate
+!         ! Estimate the star quantities -- use one of three methods to
+!         ! do this -- the primitive variable Riemann solver, the two
+!         ! shock approximation, or the two rarefaction approximation.
+!         ! Pick the method based on the pressure states at the
+!         ! interface.
+        
+!         p_max = max(p_l, p_r)
+!         p_min = min(p_l, p_r)
+
+!         Q = p_max/p_min
+
+!         rho_avg = 0.5*(rho_l + rho_r)
+!         c_avg = 0.5*(c_l + c_r)
+
+!         ! primitive variable Riemann solver (Toro, 9.3)
+!         factor = rho_avg*c_avg
+!         factor2 = rho_avg/c_avg
+
+!         pstar = 0.5*(p_l + p_r) + 0.5*(un_l - un_r)*factor
+!         ustar = 0.5*(un_l + un_r) + 0.5*(p_l - p_r)/factor
+
+!         rhostar_l = rho_l + (un_l - ustar)*factor2
+!         rhostar_r = rho_r + (ustar - un_r)*factor2
+
+!         if (Q > 2 .and. (pstar < p_min .or. pstar > p_max)) then
+
+!            ! use a more accurate Riemann solver for the estimate here
+!            ! Here Pressure - based wave speed estimates; Toro - 
+           
+!            if (pstar < p_min) then
+              
+!               ! 2-rarefaction Riemann solver
+!               z = (gamma - 1.0d0)/(2.0d0*gamma)
+!               p_lr = (p_l/p_r)**z
+
+!               ustar = (p_lr*un_l/c_l + un_r/c_r + &
+!                         2.0d0*(p_lr - 1.0d0)/(gamma - 1.0d0)) / &
+!                       (p_lr/c_l + 1.0d0/c_r)
+
+!               pstar = 0.5d0*(p_l*(1.0d0 + (gamma - 1.0d0)*(un_l - ustar)/ &
+!                                    (2.0d0*c_l) )**(1.0d0/z) + &
+!                              p_r*(1.0d0 + (gamma - 1.0d0)*(ustar - un_r)/ &
+!                                    (2.0d0*c_r) )**(1.0d0/z) )
+
+!               rhostar_l = rho_l*(pstar/p_l)**(1.0d0/gamma)
+!               rhostar_r = rho_r*(pstar/p_r)**(1.0d0/gamma)
+
+!            else
+
+!               ! 2-shock Riemann solver
+!               A_r = 2.0/((gamma + 1.0d0)*rho_r)
+!               B_r = p_r*(gamma - 1.0d0)/(gamma + 1.0d0)
+
+!               A_l = 2.0/((gamma + 1.0d0)*rho_l)
+!               B_l = p_l*(gamma - 1.0d0)/(gamma + 1.0d0)
+
+!               ! guess of the pressure
+!               p_guess = max(0.0d0, pstar)
+
+!               g_l = sqrt(A_l / (p_guess + B_l))
+!               g_r = sqrt(A_r / (p_guess + B_r))
+
+!               pstar = (g_l*p_l + g_r*p_r - (un_r - un_l))/(g_l + g_r)
+
+!               ustar = 0.5*(un_l + un_r) + &
+!                    0.5*( (pstar - p_r)*g_r - (pstar - p_l)*g_l)
+
+!               rhostar_l = rho_l*(pstar/p_l + (gamma-1.0d0)/(gamma+1.0d0))/ &
+!                    ( (gamma-1.0d0)/(gamma+1.0d0)*(pstar/p_l) + 1.0d0)
+
+!               rhostar_r = rho_r*(pstar/p_r + (gamma-1.0d0)/(gamma+1.0d0))/ &
+!                    ( (gamma-1.0d0)/(gamma+1.0d0)*(pstar/p_r) + 1.0d0)
+
+!            endif
+!         endif
+
+!         ! step II: wave speed estimate
+!         ! estimate the nonlinear wave speeds
+
+!         if (pstar <= p_l) then
+!            ! rarefaction
+!            S_l = un_l - c_l
+!         else
+!            ! shock
+!            S_l = un_l - c_l*sqrt(1.0d0 + ((gamma+1.0d0)/(2.0d0*gamma))* &
+!                                    (pstar/p_l - 1.0d0))
+!         endif
+
+!         if (pstar <= p_r) then
+!            ! rarefaction
+!            S_r = un_r + c_r
+!         else
+!            ! shock
+!            S_r = un_r + c_r*sqrt(1.0d0 + ((gamma+1.0d0)/(2.0d0/gamma))* &
+!                                   (pstar/p_r - 1.0d0))
+!         endif
+
+!         !  We could just take S_c = u_star as the estimate for the
+!         !  contact speed, but we can actually do this more accurately
+!         !  by using the Rankine-Hugonoit jump conditions across each
+!         !  of the waves (see Toro 10.58, Batten et al. SIAM
+!         !  J. Sci. and Stat. Comp., 18:1553 (1997)
+
+!         ! Eqn 10.70 in Toro
+!         S_c = (p_r - p_l + rho_l*un_l*(S_l - un_l) - rho_r*un_r*(S_r - un_r))/ &
+!              (rho_l*(S_l - un_l) - rho_r*(S_r - un_r))
+
+!         ! step III: Compute the HLLC flux
+!         ! figure out which region we are in and compute the state and 
+!         ! the interface fluxes using the HLLC Riemann solver
+!         if (S_r <= 0.0d0) then
+!            ! R region
+!            U_state(:) = U_r(i,j,:)
+
+!            call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+!                          U_state, F(i,j,:))
+
+!         else if (S_r > 0.0d0 .and. S_c <= 0) then
+!            ! R* region
+!            HLLCfactor = rho_r*(S_r - un_r)/(S_r - S_c)
+           
+!            U_state(idens) = HLLCfactor
+
+!            if (idir == 1) then
+!               U_state(ixmom) = HLLCfactor*S_c
+!               U_state(iymom) = HLLCfactor*ut_r
+!            else
+!               U_state(ixmom) = HLLCfactor*ut_r
+!               U_state(iymom) = HLLCfactor*S_c
+!            endif
+
+!            U_state(iener) = HLLCfactor*(U_r(i,j,iener)/rho_r + &
+!                 (S_c - un_r)*(S_c + p_r/(rho_r*(S_r - un_r))))
+
+!            ! find the flux on the right interface
+!            call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+!                          U_r(i,j,:), F(i,j,:))
+
+!            ! correct the flux
+!            F(i,j,:) = F(i,j,:) + S_r*(U_state(:) - U_r(i,j,:))
+
+!         else if (S_c > 0.0d0 .and. S_l < 0.0) then
+!            ! L* region
+!            HLLCfactor = rho_l*(S_l - un_l)/(S_l - S_c)
+
+!            U_state(idens) = HLLCfactor
+
+!            if (idir == 1) then
+!               U_state(ixmom) = HLLCfactor*S_c
+!               U_state(iymom) = HLLCfactor*ut_l
+!            else
+!               U_state(ixmom) = HLLCfactor*ut_l
+!               U_state(iymom) = HLLCfactor*S_c
+!            endif
+
+!            U_state(iener) = HLLCfactor*(U_l(i,j,iener)/rho_l + &
+!                 (S_c - un_l)*(S_c + p_l/(rho_l*(S_l - un_l))))
+
+!            ! find the flux on the left interface
+!            call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+!                          U_l(i,j,:), F(i,j,:))
+
+!            ! correct the flux
+!            F(i,j,:) = F(i,j,:) + S_l*(U_state(:) - U_l(i,j,:))
+
+!         else
+!            ! L region
+!            U_state(:) = U_l(i,j,:)
+
+!            call consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, &
+!                          U_state, F(i,j,:))
+
+!         endif
+
+!         ! we should deal with solid boundaries somehow here
+           
+!      enddo
+!   enddo
+! end subroutine riemann_HLLC
+   
+subroutine consFlux(idir, pres, idens, ixmom, iymom, iener, nvar, U_state, F)        
+
+  EXTERNAL pres
+
   integer, intent(in) :: idir
-  double precision, intent(in) :: gamma
   integer, intent(in) :: idens, ixmom, iymom, iener, nvar
   double precision, intent(in) :: U_state(0:nvar-1)
   double precision, intent(out) :: F(0:nvar-1)
@@ -836,7 +1090,8 @@ subroutine consFlux(idir, gamma, idens, ixmom, iymom, iener, nvar, U_state, F)
   u = U_state(ixmom)/U_state(idens)
   v = U_state(iymom)/U_state(idens)
 
-  p = (U_state(iener) - 0.5d0*U_state(idens)*(u*u + v*v))*(gamma - 1.0d0)
+  p = pres(U_state(iener), U_state(idens))
+  !p = (U_state(iener) - 0.5d0*U_state(idens)*(u*u + v*v))*(gamma - 1.0d0)
 
   if (idir == 1) then
      F(idens) = U_state(idens)*u
