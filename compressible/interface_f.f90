@@ -616,7 +616,15 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
   double precision :: eint_l, eint_r
 
   double precision :: rho_state, un_state, ut_state, p_state, rhoe_state
+  double precision :: rho_avg
+  double precision :: Q, p_min, p_max, p_lr, p_guess
+  double precision :: factor, factor2
+  double precision :: g_l, g_r, A_l, B_l, A_r, B_r, z
+  double precision :: S_l, S_r, S_c
+  double precision :: c_avg
   
+  double precision :: U_state(0:nvar-1)
+  double precision :: HLLCfactor
 
   nx = qx - 2*ng; ny = qy - 2*ng
   ilo = ng; ihi = ng+nx-1; jlo = ng; jhi = ng+ny-1
@@ -664,7 +672,6 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
         p_r = temp1
         !p_r   = rhoe_r*(gamma - 1.0d0)
         p_r = max(p_r, smallp)
-            
 
         ! define the Lagrangian sound speed
         temp = [rho_l, p_l]
@@ -696,8 +703,8 @@ subroutine riemann_HLLC(idir, qx, qy, ng, &
         ! estimate the nonlinear wave speeds
 
         ! use the simplest estimates of the wave speeds
-        S_l = min(un_l - sqrt(gamma_l*p_l/rho_l), un_r - sqrt(gamma_r(i,j)*p_r/rho_r))
-        S_r = max(un_l + sqrt(gamma_l*p_l/rho_l), un_r + sqrt(gamma_r(i,j)*p_r/rho_r))
+        S_l = min(un_l - sqrt(gamma_l*p_l/rho_l), un_r - sqrt(gamma_r*p_r/rho_r))
+        S_r = max(un_l + sqrt(gamma_l*p_l/rho_l), un_r + sqrt(gamma_r*p_r/rho_r))
 
         ! if (pstar <= p_l) then
         !    ! rarefaction

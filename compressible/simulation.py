@@ -82,7 +82,7 @@ def prim_to_cons(q, gamma, ivars, myg):
     U[:,:,ivars.idens] = q[:,:,ivars.irho] 
     U[:,:,ivars.ixmom] = q[:,:,ivars.iu]*U[:,:,ivars.idens]
     U[:,:,ivars.iymom] = q[:,:,ivars.iv]*U[:,:,ivars.idens]
-
+    
     #rhoe = eos.rhoe(gamma, q[:,:,ivars.ip])
     rhoe = eos.rhoe(U[:,:,ivars.idens], q[:,:,ivars.ip])
 
