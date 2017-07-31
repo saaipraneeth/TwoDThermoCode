@@ -13,6 +13,7 @@ import mesh.boundary as bnd
 import mesh.patch as patch
 from simulation_null import NullSimulation, grid_setup, bc_setup
 import compressible.unsplit_fluxes as flx
+import mesh.integration as integration
 
 class Variables(object):
     """
@@ -65,7 +66,6 @@ def cons_to_prim(U, gamma, ivars, myg):
     e = (U[:,:,ivars.iener] - 0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 +  q[:,:,ivars.iv]**2))/q[:,:,ivars.irho] #why do we need rho here ?
     #keyboard()
     #q[:,:,ivars.iener] = e
-
     q[:,:,ivars.ip] = eos.pres(q[:,:,ivars.irho], e)
     if ivars.naux > 0:
         q[:,:,ivars.ix:ivars.ix+ivars.naux] = \
@@ -192,28 +192,45 @@ class Simulation(NullSimulation):
 
         grav = self.rp.get_param("compressible.grav")
 
-        myg = self.cc_data.grid
+        #myg = self.cc_data.grid
 
-        Flux_x, Flux_y = flx.unsplit_fluxes(self.cc_data, self.aux_data, self.rp,
-                                            self.ivars, self.solid, self.tc, self.dt)
+        #### ---- Normal time update ---- ####
+        # Flux_x, Flux_y = flx.unsplit_fluxes(self.cc_data, self.aux_data, self.rp,
+        #                                     self.ivars, self.solid, self.tc, self.dt)
 
-        old_dens = dens.copy()
-        old_ymom = ymom.copy()
+        # old_dens = dens.copy()
+        # old_ymom = ymom.copy()
 
-        # conservative update
-        dtdx = self.dt/myg.dx
-        dtdy = self.dt/myg.dy
+        # # conservative update
+        # dtdx = self.dt/myg.dx
+        # dtdy = self.dt/myg.dy
 
-        for n in range(self.ivars.nvar):
-            var = self.cc_data.get_var_by_index(n)
+        # for n in range(self.ivars.nvar):
+        #     var = self.cc_data.get_var_by_index(n)
 
-            var.v()[:,:] += \
-                dtdx*(Flux_x.v(n=n) - Flux_x.ip(1, n=n)) + \
-                dtdy*(Flux_y.v(n=n) - Flux_y.jp(1, n=n))
+        #     var.v()[:,:] += \
+        #         dtdx*(Flux_x.v(n=n) - Flux_x.ip(1, n=n)) + \
+        #         dtdy*(Flux_y.v(n=n) - Flux_y.jp(1, n=n))
 
-        # gravitational source terms
-        ymom[:,:] += 0.5*self.dt*(dens[:,:] + old_dens[:,:])*grav
-        ener[:,:] += 0.5*self.dt*(ymom[:,:] + old_ymom[:,:])*grav
+        # # gravitational source terms
+        # ymom[:,:] += 0.5*self.dt*(dens[:,:] + old_dens[:,:])*grav
+        # ener[:,:] += 0.5*self.dt*(ymom[:,:] + old_ymom[:,:])*grav
+
+        myd = self.cc_data.grid
+
+        method = self.rp.get_param("compressible.temporal_method")
+
+        keyboard()
+        rk = integration.RKIntegrator(myd.t, self.dt, method=method)
+        rk.set_start(myd)
+
+        for s in range(rk.nstages()):
+            ytmp = rk.get_stage_start(s)
+            ytmp.fill_BC_all()
+            k = self.substep(ytmp)
+            rk.store_increment(s, k)
+
+        rk.compute_final_update()
 
         # increment the time
         self.cc_data.t += self.dt
@@ -247,7 +264,6 @@ class Simulation(NullSimulation):
         #e = q[:,:,ivars.iener]
         e = eos.rhoe(rho, p)/rho
         #keyboard()
-        keyboard()
 
         magvel = np.sqrt(u**2 + v**2)
 
@@ -323,7 +339,43 @@ class Simulation(NullSimulation):
             else:
                 ax.set_title(field_names[n])
 
+        if self.cc_data.t > 2.745E-03 :
+            keyboard()
         plt.figtext(0.05, 0.0125, "t = {:10.5g}".format(self.cc_data.t))
 
         plt.pause(0.001)
         plt.draw()
+
+    def substep(self, myd):
+        """
+        take a single substep in the RK timestepping starting with the 
+        conservative state defined as part of myd
+        """
+
+        myg = myd.grid
+        grav = self.rp.get_param("compressible.grav")
+
+        # compute the source terms
+        dens = myd.get_var("density")
+        ymom = myd.get_var("y-momentum")
+
+        ymom_src = myg.scratch_array()
+        ymom_src.v()[:,:] = dens.v()[:,:]*grav
+
+        E_src = myg.scratch_array()
+        E_src.v()[:,:] = ymom.v()[:,:]*grav
+
+        k = myg.scratch_array(nvar=self.ivars.nvar)
+
+        flux_x, flux_y = flx.unsplit_fluxes(self.cc_data, self.aux_data, self.rp,
+                                            self.ivars, self.solid, self.tc, self.dt)
+
+        for n in range(self.ivars.nvar):
+            k.v(n=n)[:,:] = \
+               (flux_x.v(n=n) - flux_x.ip(1, n=n))/myg.dx + \
+               (flux_y.v(n=n) - flux_y.jp(1, n=n))/myg.dy
+
+        k.v(n=self.ivars.iymom)[:,:] += ymom_src.v()[:,:]
+        k.v(n=self.ivars.iener)[:,:] += E_src.v()[:,:]
+
+        return k

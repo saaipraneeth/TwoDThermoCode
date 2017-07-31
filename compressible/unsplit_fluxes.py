@@ -136,7 +136,7 @@ import thermodynamics_tools as tools
 from util import msg
 from CoolProp.CoolProp import PropsSI
 from CoolProp.CoolProp import PhaseSI
-fluid = 'Nitrogen'
+fluid = 'CO2'
 import preos_cy as PREOS
 #import preos 
 #PREOS = preos.peng_robinson_fluid()
@@ -322,7 +322,6 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     else:
         msg.fail("ERROR: Riemann solver undefined")
 
-    keyboard()
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
                       ivars.nvar, ivars.idens, ivars.ixmom, ivars.iymom, ivars.iener,
                       solid.xl, solid.xr,
@@ -337,7 +336,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)    
     
     tm_riem.end()
-    keyboard()
+    #keyboard()
     #=========================================================================
     # construct the interface values of U now
     #=========================================================================
@@ -420,7 +419,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
 
     # up until now, F_x and F_y stored the transverse fluxes, now we
     # overwrite with the fluxes normal to the interfaces
-    keyboard()
+    #keyboard()
     tm_riem.begin()
 
     _fx = riemannFunc(1, myg.qx, myg.qy, myg.ng,
@@ -437,7 +436,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     F_y = ai.ArrayIndexer(d=_fy, grid=myg)
     
     tm_riem.end()
-    keyboard()
+    #keyboard()
     #=========================================================================
     # apply artificial viscosity
     #=========================================================================
@@ -464,7 +463,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
             avisco_y.v(buf=b)*(var.jp(-1, buf=b) - var.v(buf=b))
 
     tm_flux.end()
-    keyboard()
+    #keyboard()
     return F_x, F_y
 
 eqnst = 'coolprop'
@@ -523,6 +522,6 @@ elif eqnst == 'coolprop':
   def speed(prho):
     #T_in = PREOS.NewtonIterate_TemperaturefromPrho(prho[1], prho[0], T_in = 300.0, eps= 1E-10, omega = 1.0)
     #sos = PREOS.getSpeedOfSound(prho[0], T_in)
-    sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], "Nitrogen")
+    sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], fluid)
     sos = np.array(sos, order = 'F')
     return sos

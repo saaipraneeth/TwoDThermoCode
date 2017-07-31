@@ -4,7 +4,7 @@ gamma is the constant ratio of specific heats.
 """
 from CoolProp.CoolProp import PropsSI
 from CoolProp.CoolProp import PhaseSI
-fluid = 'Nitrogen'
+fluid = 'CO2'
 from pdb import set_trace as keyboard
 import numpy as np
 import preos_cy as PREOS
@@ -204,7 +204,7 @@ elif eqofst == 'coolprop':
             return p
         else:
             p = PropsSI('P', 'UMASS', eint,'DMASS', dens, fluid)
-            keyboard()
+            #keyboard()
             #p = np.array(p, order = 'F')
             return p
 
