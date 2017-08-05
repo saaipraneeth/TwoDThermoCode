@@ -9,11 +9,19 @@ class peng_robinson_fluid():
 		#% equation of state (N2 property is assumed).
 
 		# N2
-		MW = 28.0134e-3
-		Tc = 126.19
-		pc  = 3.3958e+6
-		rhoc = 313.3
-		omega  = 0.03720
+		# MW = 28.0134e-3
+		# Tc = 126.19
+		# pc  = 3.3958e+6
+		# rhoc = 313.3
+		# omega  = 0.03720
+
+		#CO2
+		MW = 44.01e-3
+		Tc = 304.25 
+		pc  = 7.3773e+6
+		rhoc = 348.8
+		omega  = 0.22394
+
 
 		c = 0.37464 + 1.54226*omega - 0.26992*omega**2
 

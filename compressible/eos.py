@@ -13,7 +13,7 @@ import thermodynamics_tools as tools
 
 #PREOS = preos.peng_robinson_fluid()
 
-eqofst = 'coolprop'
+eqofst = 'PREOS'
 
 if eqofst == 'PREOS':
 
@@ -324,3 +324,103 @@ elif eqofst == 'coolprop':
         # eint = PropsSI('UMASS', 'P', pres, 'DMASS', dens, fluid)
         # rhoe = np.array(dens*eint, order = 'F')
         #return rhoe
+
+    def sound(p, dens):
+
+        sos = np.zeros(np.shape(p))
+        # if (eint.ndim == 2):
+        #     for i in range(np.shape(pres)[0]):
+        #         for j in range(np.shape(pres)[1]):
+        #             if dens[i][j] < 0.1 :
+        #                 eint[i][j] = 0.0
+        #                 continue
+        #             eint[i][j] = PropsSI('UMASS', 'P', pres[i][j],'DMASS', dens[i][j], fluid)
+        #     rhoe = np.array(dens*eint, order = 'F')
+        #     return rhoe
+        if (sos.ndim == 2):
+            for i in range(np.shape(p)[0]):
+                sos[i] = PropsSI('A', 'P', p[i],'DMASS', dens[i], fluid)
+            sos = np.array(sos, order = 'F')
+            return sos
+        else:
+            sos = PropsSI('A', 'P', p,'DMASS', dens, fluid)
+            sos = np.array(sos, order = 'F')
+            return sos
+
+elif eqofst == 'ideal':
+
+    def pres(dens, eint):
+        """
+        Given the density and the specific internal energy, return the
+        pressure
+
+        Parameters
+        ----------
+        gamma : float
+            The ratio of specific heats
+        dens : float
+            The density
+        eint : float
+            The specific internal energy
+
+        Returns
+        -------
+        out : float
+           The pressure
+
+        """
+        gamma = 1.4
+        p = dens*eint*(gamma - 1.0)
+        return p
+
+
+    def dens(gamma, pres, eint):
+        """
+        Given the pressure and the specific internal energy, return
+        the density
+
+        Parameters
+        ----------
+        gamma : float
+            The ratio of specific heats
+        pres : float
+            The pressure
+        eint : float
+            The specific internal energy
+
+        Returns
+        -------
+        out : float
+           The density
+
+        """
+        dens = pres/(eint*(gamma - 1.0))
+        return dens
+
+
+    def rhoe(gamma, pres):
+        """
+        Given the pressure, return (rho * e)
+
+        Parameters
+        ----------
+        gamma : float
+            The ratio of specific heats
+        pres : float
+            The pressure
+
+        Returns
+        -------
+        out : float
+           The internal energy density, rho e
+
+        """
+        gamma = 1.4
+        rhoe = pres/(gamma - 1.0)
+        return rhoe
+
+    def sound(p, dens):
+
+        gamma = 1.4
+        sound = np.sqrt(gamma*p/dens)
+        return sound

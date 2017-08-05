@@ -192,9 +192,9 @@ class Simulation(NullSimulation):
 
         grav = self.rp.get_param("compressible.grav")
 
-        #myg = self.cc_data.grid
+        # myg = self.cc_data.grid
 
-        #### ---- Normal time update ---- ####
+        # ### ---- Normal time update ---- ####
         # Flux_x, Flux_y = flx.unsplit_fluxes(self.cc_data, self.aux_data, self.rp,
         #                                     self.ivars, self.solid, self.tc, self.dt)
 
@@ -216,11 +216,10 @@ class Simulation(NullSimulation):
         # ymom[:,:] += 0.5*self.dt*(dens[:,:] + old_dens[:,:])*grav
         # ener[:,:] += 0.5*self.dt*(ymom[:,:] + old_ymom[:,:])*grav
 
-        myd = self.cc_data.grid
+        myd = self.cc_data
 
         method = self.rp.get_param("compressible.temporal_method")
 
-        keyboard()
         rk = integration.RKIntegrator(myd.t, self.dt, method=method)
         rk.set_start(myd)
 
@@ -339,7 +338,7 @@ class Simulation(NullSimulation):
             else:
                 ax.set_title(field_names[n])
 
-        if self.cc_data.t > 2.745E-03 :
+        if self.cc_data.t > 2.745E-04 :
             keyboard()
         plt.figtext(0.05, 0.0125, "t = {:10.5g}".format(self.cc_data.t))
 

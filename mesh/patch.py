@@ -391,6 +391,7 @@ class CellCenterData2d(object):
             The array of data corresponding to the variable name
 
         """
+
         try:
             n = self.names.index(name)
         except:
@@ -838,7 +839,7 @@ def cell_center_data_clone(old):
 
     new.aux = old.aux.copy()
     new.data = old.data.copy()
-    new.derives = old.derives.copy()
+    new.derives = old.derives
 
     return new
 

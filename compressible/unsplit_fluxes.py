@@ -525,3 +525,19 @@ elif eqnst == 'coolprop':
     sos = PropsSI('A', 'P', prho[0], 'DMASS', prho[1], fluid)
     sos = np.array(sos, order = 'F')
     return sos
+
+elif eqnst == 'ideal':
+
+  def pres(densener):
+    rhoe_l = densener[0]*densener[1]
+    pressure = rhoe_l*(1.4 - 1.0)
+
+    return pressure
+
+  def real_gamma(denspres):
+    rg = 1.4
+    return rg
+
+  def speed(prho):
+    sos = np.sqrt(1.4*prho[0]/prho[1])
+    return sos
