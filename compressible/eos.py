@@ -13,7 +13,7 @@ import thermodynamics_tools as tools
 
 #PREOS = preos.peng_robinson_fluid()
 
-eqofst = 'PREOS'
+eqofst = 'coolprop'
 
 if eqofst == 'PREOS':
 

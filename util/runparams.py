@@ -47,6 +47,7 @@ from __future__ import print_function
 
 import re
 from util import msg
+from pdb import set_trace as keyboard
 
 
 # some utility functions to automagically determine what the data

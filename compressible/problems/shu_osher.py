@@ -8,26 +8,26 @@ import numpy as np
 import compressible.eos as eos
 
 def init_data(my_data, rp):
-    """ initialize the sod problem """
+    """ initialize the shu-osher problem """
 
     msg.bold("initializing the sod problem...")
 
     # make sure that we are passed a valid patch object
     if not isinstance(my_data, patch.CellCenterData2d):
-        print("ERROR: patch invalid in sod.py")
+        print("ERROR: patch invalid in shu_osher.py")
         print(my_data.__class__)
         sys.exit()
 
 
-    # get the sod parameters
-    dens_left = rp.get_param("sod.dens_left")
-    dens_right = rp.get_param("sod.dens_right")
+    # get the shu_osher parameters
 
-    u_left = rp.get_param("sod.u_left")
-    u_right = rp.get_param("sod.u_right")
+    dens_left = rp.get_param("shu_osher.dens_left")
 
-    p_left = rp.get_param("sod.p_left")
-    p_right = rp.get_param("sod.p_right")
+    u_left = rp.get_param("shu_osher.u_left")
+    u_right = rp.get_param("shu_osher.u_right")
+
+    p_left = rp.get_param("shu_osher.p_left")
+    p_right = rp.get_param("shu_osher.p_right")
     
 
     # get the density, momenta, and energy as separate variables
@@ -47,7 +47,7 @@ def init_data(my_data, rp):
 
     gamma = rp.get_param("eos.gamma")
 
-    direction = rp.get_param("sod.direction")
+    direction = rp.get_param("shu_osher.direction")
     
     #xctr = 0.5*(xmin + xmax)
     xctr = -4.0
@@ -59,20 +59,19 @@ def init_data(my_data, rp):
 
         # left
         idxl = myg.x2d <= xctr
+
         dens[idxl] = dens_left
         xmom[idxl] = dens_left*u_left
         ymom[idxl] = 0.0
         ener[idxl] = eos.rhoe(dens[idxl], p_left*np.ones(np.shape(dens[idxl]))) #/ dens[idxl]
         #ener[idxl] = p_left/(gamma - 1.0) + 0.5*xmom[idxl]*u_left
 
-
         # right
         idxr = myg.x2d > xctr
 
         xdat = idxr[:,0]
         xall = myg.x2d[:,0]
-        #rhocrit = dens_left/3.857
-        rhocrit = 50.0
+        rhocrit = dens_left/3.857
 
         for i in range(xdat.shape[0]):
             if idxr[i].all() == True:
@@ -80,11 +79,12 @@ def init_data(my_data, rp):
                 xmom[i] = (1.0 + 0.2*np.sin(5.0*xall[i]))*rhocrit*np.ones(18)*u_right
                 ymom[i] = np.ones(18)*0.0
                 ener[i] = eos.rhoe((1.0 + 0.2*np.sin(5.0*xall[i]))*rhocrit*np.ones(18), p_right*np.ones(18))
+
         keyboard()
-        # dens[idxr] = dens_right
-        # xmom[idxr] = dens_right*u_right
-        # ymom[idxr] = 0.0
-        # ener[idxr] = eos.rhoe(dens[idxr], p_right*np.ones(np.shape(dens[idxr]))) #/ dens[idxr]
+        #dens[idxr] = 1.0 + 0.2*np.sin(5.0*xall[xdat])
+        #xmom[idxr] = dens_right*u_right
+        #ymom[idxr] = 0.0
+        #ener[idxr] = eos.rhoe(dens[idxr], p_right*np.ones(np.shape(dens[idxr]))) #/ dens[idxr]
         #ener[idxr] = p_right/(gamma - 1.0) + 0.5*xmom[idxr]*u_right
 
     else:
