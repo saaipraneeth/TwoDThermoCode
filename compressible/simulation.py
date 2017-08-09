@@ -60,17 +60,17 @@ def cons_to_prim(U, gamma, ivars, myg):
     q[:,:,ivars.irho] = U[:,:,ivars.idens]
     q[:,:,ivars.iu] = U[:,:,ivars.ixmom]/U[:,:,ivars.idens]
     q[:,:,ivars.iv] = U[:,:,ivars.iymom]/U[:,:,ivars.idens]
-    q[:,:,ivars.iv] = 0.0*q[:,:,ivars.iv]
+    #q[:,:,ivars.iv] = 0.0*q[:,:,ivars.iv]
 
     ## here iener will be in j/kg and it is rho*E
     e = (U[:,:,ivars.iener] - 0.5*q[:,:,ivars.irho]*(q[:,:,ivars.iu]**2 +  q[:,:,ivars.iv]**2))/q[:,:,ivars.irho] #why do we need rho here ?
     #keyboard()
     #q[:,:,ivars.iener] = e
     q[:,:,ivars.ip] = eos.pres(q[:,:,ivars.irho], e)
+
     if ivars.naux > 0:
         q[:,:,ivars.ix:ivars.ix+ivars.naux] = \
             U[:,:,ivars.irhox:ivars+naux]/q[:,:,ivars.irho]
-
     return q
 
 
@@ -192,9 +192,9 @@ class Simulation(NullSimulation):
 
         grav = self.rp.get_param("compressible.grav")
 
+        #--------------Euler time stepping--------------#
         # myg = self.cc_data.grid
 
-        # ### ---- Normal time update ---- ####
         # Flux_x, Flux_y = flx.unsplit_fluxes(self.cc_data, self.aux_data, self.rp,
         #                                     self.ivars, self.solid, self.tc, self.dt)
 
@@ -216,6 +216,8 @@ class Simulation(NullSimulation):
         # ymom[:,:] += 0.5*self.dt*(dens[:,:] + old_dens[:,:])*grav
         # ener[:,:] += 0.5*self.dt*(ymom[:,:] + old_ymom[:,:])*grav
 
+
+        #--------------Runge-Kutta Timestepping---------#
         myd = self.cc_data
 
         method = self.rp.get_param("compressible.temporal_method")
@@ -262,7 +264,6 @@ class Simulation(NullSimulation):
         p = q[:,:,ivars.ip]
         #e = q[:,:,ivars.iener]
         e = eos.rhoe(rho, p)/rho
-        #keyboard()
 
         magvel = np.sqrt(u**2 + v**2)
 
@@ -338,8 +339,8 @@ class Simulation(NullSimulation):
             else:
                 ax.set_title(field_names[n])
 
-        if self.cc_data.t > 0.178 :
-            keyboard()
+        #if self.cc_data.t > 5.903E-04 :
+            #keyboard()
         plt.figtext(0.05, 0.0125, "t = {:10.5g}".format(self.cc_data.t))
 
         plt.pause(0.001)

@@ -1,7 +1,7 @@
 # simple inputs files for the unsplit CTU hydro scheme
 
 [driver]
-max_steps = 200
+max_steps = 20000
 tmax = 0.2
 
 [io]
@@ -10,20 +10,21 @@ dt_out = 0.05
 
 [mesh]
 nx = 10
-ny = 128
+ny = 201
 xmax = .05
-ymax = 1.0
+ymin = -0.5
+ymax = 0.5
 ylboundary = outflow
 yrboundary = outflow
 
 [sod]
 direction = y
 
-dens_left = 1.0
+dens_left = 192.85715
 dens_right = 0.125
 
-u_left = 0.0
+u_left = 842.459
 u_right = 0.0
 
-p_left = 1.0
-p_right = 0.1
+p_left = 41.332E06
+p_right = 4.0E06

@@ -4,7 +4,7 @@ gamma is the constant ratio of specific heats.
 """
 from CoolProp.CoolProp import PropsSI
 from CoolProp.CoolProp import PhaseSI
-fluid = 'CO2'
+fluid = 'Nitrogen'
 from pdb import set_trace as keyboard
 import numpy as np
 import preos_cy as PREOS
@@ -13,7 +13,7 @@ import thermodynamics_tools as tools
 
 #PREOS = preos.peng_robinson_fluid()
 
-eqofst = 'coolprop'
+eqofst = 'ideal'
 
 if eqofst == 'PREOS':
 
@@ -420,7 +420,6 @@ elif eqofst == 'ideal':
         return rhoe
 
     def sound(p, dens):
-
         gamma = 1.4
         sound = np.sqrt(gamma*p/dens)
         return sound

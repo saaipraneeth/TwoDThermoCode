@@ -136,7 +136,7 @@ import thermodynamics_tools as tools
 from util import msg
 from CoolProp.CoolProp import PropsSI
 from CoolProp.CoolProp import PhaseSI
-fluid = 'CO2'
+fluid = 'Nitrogen'
 import preos_cy as PREOS
 #import preos 
 #PREOS = preos.peng_robinson_fluid()
@@ -466,7 +466,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     #keyboard()
     return F_x, F_y
 
-eqnst = 'coolprop'
+eqnst = 'ideal'
 
 if eqnst == 'PREOS':
 

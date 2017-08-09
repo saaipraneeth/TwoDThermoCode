@@ -36,6 +36,7 @@ def derive_primitives(myd, varnames):
             derived_vars.append(v)
 
         elif var in ["e", "eint"]:
+            keyboard()
             derived_vars.append(e)
 
         elif var in ["p", "pressure"]:

@@ -6,6 +6,7 @@ import numpy as np
 
 import mesh.patch as patch
 from util import msg
+from pdb import set_trace as keyboard
 
 def init_data(my_data, rp):
     """ initialize the quadrant problem """
@@ -89,7 +90,6 @@ def init_data(my_data, rp):
     ymom[iq4] = r4*v4
     ener[iq4] = p4/(gamma - 1.0) + 0.5*r4*(u4*u4 + v4*v4)
 
-    
 def finalize():
     """ print out any information to the user at the end of the run """
     pass
