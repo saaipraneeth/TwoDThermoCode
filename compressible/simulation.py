@@ -339,8 +339,8 @@ class Simulation(NullSimulation):
             else:
                 ax.set_title(field_names[n])
 
-        #if self.cc_data.t > 5.903E-04 :
-            #keyboard()
+        if self.cc_data.t > 5.903E-04 :
+            keyboard()
         plt.figtext(0.05, 0.0125, "t = {:10.5g}".format(self.cc_data.t))
 
         plt.pause(0.001)

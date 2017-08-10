@@ -12,7 +12,7 @@ basename = sod_x_
 dt_out = 0.05
 
 [mesh]
-nx = 201
+nx = 501
 ny = 10
 xmin = -0.5
 xmax = 0.5
