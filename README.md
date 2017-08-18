@@ -1,1 +1,1 @@
-![Alt text](/gauss_diffusion.png?raw=true "Optional Title")
+![Alt text](/Results/plots/shu_osher_density.png?raw=true "Optional Title")
