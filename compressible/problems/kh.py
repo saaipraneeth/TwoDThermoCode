@@ -4,6 +4,8 @@ import numpy as np
 
 import mesh.patch as patch
 from util import msg
+from pdb import set_trace as keyboard
+import compressible.eos as eos
 
 def init_data(my_data, rp):
     """ initialize the Kelvin-Helmholtz problem """
@@ -61,9 +63,11 @@ def init_data(my_data, rp):
     xmom[idx_h] = rho_2*v_2
     ymom[idx_h] = 0.0
 
-    p = 1.0
-    ener[:,:] = p/(gamma - 1.0) + 0.5*(xmom[:,:]**2 + ymom[:,:]**2)/dens[:,:]
-
+    #p = 1.0
+    p =6.9E06*np.ones(np.shape(dens))
+    #ener[:,:] = p/(gamma - 1.0) + 0.5*(xmom[:,:]**2 + ymom[:,:]**2)/dens[:,:]
+    ener[:,:] = eos.rhoe(dens[:,:], p) + 0.5*(xmom[:,:]**2 + ymom[:,:]**2)/dens[:,:]
+    keyboard()
 
 def finalize():
     """ print out any information to the user at the end of the run """

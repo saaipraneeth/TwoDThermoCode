@@ -466,7 +466,7 @@ def unsplit_fluxes(my_data, my_aux, rp, ivars, solid, tc, dt):
     #keyboard()
     return F_x, F_y
 
-eqnst = 'ideal'
+eqnst = 'coolprop'
 
 if eqnst == 'PREOS':
 

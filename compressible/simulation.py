@@ -174,7 +174,6 @@ class Simulation(NullSimulation):
         # the timestep is min(dx/(|u| + cs), dy/(|v| + cs))
         xtmp = self.cc_data.grid.dx/(abs(u) + cs)
         ytmp = self.cc_data.grid.dy/(abs(v) + cs)
-
         self.dt = cfl*float(min(xtmp.min(), ytmp.min()))
 
     def evolve(self):
@@ -339,8 +338,8 @@ class Simulation(NullSimulation):
             else:
                 ax.set_title(field_names[n])
 
-        if self.cc_data.t > 5.903E-04 :
-            keyboard()
+        #if self.cc_data.t > 2.745E-04 :
+            #keyboard()
         plt.figtext(0.05, 0.0125, "t = {:10.5g}".format(self.cc_data.t))
 
         plt.pause(0.001)

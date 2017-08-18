@@ -1102,11 +1102,11 @@ subroutine consFlux(idir, pres, idens, ixmom, iymom, iener, nvar, U_state, F)
 
   if (idir == 1) then
      F(idens) = U_state(idens)*u
-     F(ixmom) = U_state(ixmom)*u + p
+     F(ixmom) = U_state(ixmom)*u + p ! - mu*face_dudx
      F(iymom) = U_state(iymom)*u
      F(iener) = (U_state(iener) + p)*u
   else
-     F(idens) = U_state(idens)*v
+     F(idens) = U_state(idens)*v 
      F(ixmom) = U_state(ixmom)*v 
      F(iymom) = U_state(iymom)*v + p
      F(iener) = (U_state(iener) + p)*v

@@ -6,6 +6,7 @@ import numpy as np
 
 import mesh.patch as patch
 from util import msg
+import compressible.eos as eos
 from pdb import set_trace as keyboard
 
 def init_data(my_data, rp):
@@ -70,24 +71,29 @@ def init_data(my_data, rp):
     dens[iq1] = r1
     xmom[iq1] = r1*u1
     ymom[iq1] = r1*v1
+    #ener[iq1] = eos.rhoe(p1*np.ones(np.shape(dens[iq1])), dens[iq1]) + 0.5*r1*(u1*u1 + v1*v1)
+    keyboard()
     ener[iq1] = p1/(gamma - 1.0) + 0.5*r1*(u1*u1 + v1*v1)
                 
     # quadrant 2
     dens[iq2] = r2
     xmom[iq2] = r2*u2
     ymom[iq2] = r2*v2
+    #ener[iq2] = eos.rhoe(p1*np.ones(np.shape(dens[iq2])), dens[iq2]) + 0.5*r2*(u2*u2 + v2*v2)
     ener[iq2] = p2/(gamma - 1.0) + 0.5*r2*(u2*u2 + v2*v2)
 
     # quadrant 3
     dens[iq3] = r3
     xmom[iq3] = r3*u3
     ymom[iq3] = r3*v3
+    #ener[iq3] = eos.rhoe(p1*np.ones(np.shape(dens[iq3])), dens[iq3]) + 0.5*r3*(u3*u3 + v3*v3)
     ener[iq3] = p3/(gamma - 1.0) + 0.5*r3*(u3*u3 + v3*v3)
 
     # quadrant 4
     dens[iq4] = r4
     xmom[iq4] = r4*u4
     ymom[iq4] = r4*v4
+    #ener[iq4] = eos.rhoe(p1*np.ones(np.shape(dens[iq4])), dens[iq4]) + 0.5*r4*(u4*u4 + v4*v4)
     ener[iq4] = p4/(gamma - 1.0) + 0.5*r4*(u4*u4 + v4*v4)
 
 def finalize():
