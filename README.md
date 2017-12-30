@@ -1,1 +1,1 @@
-![Alt text](/Results/plots/result_shu_2001_den.png?raw=true "Optional Title")
+![Alt text](/Results/plots/NACA0012_p.png?raw=true "Optional Title")
