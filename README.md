@@ -1,4 +1,5 @@
-A 2D Compressible Navier stokes solver on a uniform mesh with riemann solvers, real fluid thermodynamics
+A 2D Compressible Navier stokes solver on a uniform mesh with riemann solvers, real fluid thermodynamics.
+Developed on top of Pyro2, (https://github.com/python-hydro/pyro2)
 
 Specialities:
 
